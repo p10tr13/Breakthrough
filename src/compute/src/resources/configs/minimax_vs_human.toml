@@ -1,0 +1,10 @@
+board_width = 6
+board_height = 8
+seed = 42
+
+[white_player]
+type = "Minimax"
+max_depth = 4
+
+[black_player]
+type = "Human"
