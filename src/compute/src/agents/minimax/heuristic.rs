@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
 use crate::core::{Board, BoardConfig, Status};
+use std::fmt::Debug;
 
 const SCORE_WIN: i32 = 1e6 as i32;
 const SCORE_LOSS: i32 = -1e6 as i32;
 
-pub trait PositionEvaluator {
+pub trait PositionEvaluator: Send + Debug {
     fn evaluate(&self, board: &Board, config: &BoardConfig) -> i32;
     fn score_loss(&self) -> i32;
     fn score_win(&self) -> i32;

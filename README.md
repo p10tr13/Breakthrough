@@ -14,6 +14,12 @@ The objective is to either:
 
 Because all pieces move only forward and there is constant pressure toward the goal, games are decisive and do not result in draws.
 
+## Running the project
+
+```sh
+cargo run --bin breakthrough -- .\src\resources\configs\minimax_vs_human.toml
+```
+
 ## Project Structure
 
 The repository is organized into two main components: a high-performance game engine written in Rust and a Python-based analysis layer for experimentation and evaluation.

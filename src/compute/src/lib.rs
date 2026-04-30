@@ -1,6 +1,7 @@
 pub mod agents;
 pub mod cli;
 pub mod core;
+pub mod gui;
 
 use serde::{Deserialize, Serialize};
 

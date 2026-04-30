@@ -18,3 +18,10 @@ strum_macros = "0.28.0"
 rayon = "1.11.0"
 csv = "1.4.0"
 rand = "0.10.0"
+egui = "0.33.2"
+egui-macroquad = "0.17.3"
+egui_extras = { version = "0.31.0", features = ["all_loaders"] }
+egui-file-dialog = "=0.10.0"
+egui-phosphor = { version = "0.9.0", features = ["fill"] }
+macroquad = "0.4.14"
+image = { version = "0.25", features = ["png"] }

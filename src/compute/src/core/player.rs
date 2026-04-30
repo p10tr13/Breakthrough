@@ -1,4 +1,6 @@
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+use strum_macros::Display;
+
+#[derive(Debug, Default, Display, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Player {
     #[default]
@@ -12,5 +14,13 @@ impl Player {
             Self::White => Self::Black,
             Self::Black => Self::White,
         }
+    }
+
+    pub fn is_white(self) -> bool {
+        matches!(self, Self::White)
+    }
+
+    pub fn is_black(self) -> bool {
+        matches!(self, Self::Black)
     }
 }

@@ -2,34 +2,51 @@
 
 mod heuristic;
 
-use heuristic::PositionEvaluator;
+use super::Agent;
+
+use heuristic::{HeuristicEvaluator, PositionEvaluator};
 
 use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
 
-use crate::core::{Board, BoardConfig, Player, Ply, Status};
+use crate::core::{Board, BoardConfig, Ply};
 
+#[derive(Debug)]
 pub struct MinimaxAgent {
     pub max_depth: u8,
     pub heuristic: Box<dyn PositionEvaluator>,
     pub rng: SmallRng,
 }
 
-impl MinimaxAgent {
-    pub fn new(max_depth: u8, heuristic: Box<dyn PositionEvaluator>, seed: u64) -> Self {
-        Self {
-            max_depth,
-            heuristic,
-            rng: SmallRng::seed_from_u64(seed),
-        }
-    }
-
-    pub fn get_ply(&mut self, board: &Board, config: &BoardConfig) -> Option<Ply> {
+impl Agent for MinimaxAgent {
+    fn select_ply(&mut self, board: &Board, config: &BoardConfig) -> Option<Ply> {
         let alpha = self.heuristic.score_loss() * 2;
         let beta = self.heuristic.score_win() * 2;
 
         let (_, best_move) = self.alphabeta(*board, self.max_depth, alpha, beta, config);
         best_move
+    }
+}
+
+impl MinimaxAgent {
+    pub fn new(max_depth: u8, seed: u64) -> Self {
+        Self {
+            max_depth,
+            heuristic: Box::new(HeuristicEvaluator::default()),
+            rng: SmallRng::seed_from_u64(seed),
+        }
+    }
+
+    pub fn with_position_evaluator(
+        max_depth: u8,
+        heuristic: Box<dyn PositionEvaluator>,
+        seed: u64,
+    ) -> Self {
+        Self {
+            max_depth,
+            heuristic,
+            rng: SmallRng::seed_from_u64(seed),
+        }
     }
 
     fn alphabeta(
@@ -44,9 +61,9 @@ impl MinimaxAgent {
         let lower_score = self.heuristic.score_loss() - depth as i32;
         let status = board.get_status(config);
 
-        if status == Status::WhiteWon {
+        if status.is_white_won() {
             return (higher_score, None);
-        } else if status == Status::BlackWon {
+        } else if status.is_black_won() {
             return (lower_score, None);
         }
 
@@ -57,14 +74,14 @@ impl MinimaxAgent {
         let mut legal_plies = board.get_legal_plies(config);
 
         if legal_plies.is_empty() {
-            if board.turn == Player::White {
+            if board.turn.is_white() {
                 return (lower_score, None);
             } else {
                 return (higher_score, None);
             }
         }
 
-        let is_maximizing = board.turn == crate::core::Player::White;
+        let is_maximizing = board.turn.is_white();
         let cols = config.width as usize;
 
         legal_plies.sort_unstable_by_key(|ply| {
@@ -150,13 +167,10 @@ impl MinimaxAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        agents::minimax::heuristic::HeuristicEvaluator,
-        core::{Board, BoardConfig, Player, Ply},
-    };
+    use crate::core::{Board, BoardConfig, Player, Ply};
 
     fn create_agent() -> MinimaxAgent {
-        MinimaxAgent::new(3, Box::new(HeuristicEvaluator::default()), 42)
+        MinimaxAgent::new(3, 42)
     }
 
     #[test]
@@ -171,7 +185,7 @@ mod tests {
         };
 
         let best_move = agent
-            .get_ply(&board, &config)
+            .select_ply(&board, &config)
             .expect("Agent should return a ply");
         let winning_targets = vec![12, 13, 14];
         assert!(winning_targets.contains(&best_move.to));
@@ -189,7 +203,7 @@ mod tests {
         };
 
         let best_move = agent
-            .get_ply(&board, &config)
+            .select_ply(&board, &config)
             .expect("Agent should return a ply");
 
         assert_eq!(best_move, Ply { from: 0, to: 5 });
@@ -207,7 +221,7 @@ mod tests {
         };
 
         let best_move = agent
-            .get_ply(&board, &config)
+            .select_ply(&board, &config)
             .expect("Agent should return a ply");
 
         let winning_targets = vec![1, 2, 3];
