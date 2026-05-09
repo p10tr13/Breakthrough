@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use strum_macros::Display;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub enum Status {
     Ongoing,
     WhiteWon,

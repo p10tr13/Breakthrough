@@ -1,23 +1,80 @@
+mod metrics;
 mod minimax;
+mod stats;
 
-pub use minimax::MinimaxAgent;
+pub use metrics::*;
+pub use minimax::{HeuristicEvaluator, MinimaxAgent, MinimaxStats, MinimaxStatsAccumulator};
+pub use stats::{AgentRuntimeStats, AgentStatsAccumulator};
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::{Board, BoardConfig, Ply};
 
+fn default_max_depth() -> u8 {
+    4
+}
+
+fn default_material() -> i32 {
+    100
+}
+fn default_advancement() -> i32 {
+    10
+}
+fn default_defended() -> i32 {
+    5
+}
+fn default_edge_penalty() -> i32 {
+    -2
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum AgentConfig {
-    Minimax { max_depth: u8 },
+    Minimax {
+        #[serde(default = "default_max_depth")]
+        max_depth: u8,
+
+        #[serde(default = "default_material")]
+        material_weight: i32,
+
+        #[serde(default = "default_advancement")]
+        advancement_weight: i32,
+
+        #[serde(default = "default_defended")]
+        defended_weight: i32,
+
+        #[serde(default = "default_edge_penalty")]
+        edge_penalty_weight: i32,
+    },
     Human,
+}
+
+impl From<&AgentConfig> for AgentType {
+    fn from(config: &AgentConfig) -> Self {
+        match config {
+            AgentConfig::Minimax { .. } => Self::Minimax,
+            AgentConfig::Human => Self::Human,
+        }
+    }
 }
 
 impl AgentConfig {
     pub fn create_agent(&self, seed: u64) -> BreakthroughAgent {
         match self {
-            Self::Minimax { max_depth } => {
-                BreakthroughAgent::Minimax(MinimaxAgent::new(*max_depth, seed))
+            Self::Minimax {
+                max_depth,
+                material_weight,
+                advancement_weight,
+                defended_weight,
+                edge_penalty_weight,
+            } => {
+                let heuristic = HeuristicEvaluator::new(
+                    *material_weight,
+                    *advancement_weight,
+                    *defended_weight,
+                    *edge_penalty_weight,
+                );
+                BreakthroughAgent::Minimax(MinimaxAgent::new(*max_depth, seed, Box::new(heuristic)))
             }
             Self::Human => BreakthroughAgent::Human,
         }
@@ -28,8 +85,17 @@ impl AgentConfig {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub enum AgentStats {
+    #[default]
+    None,
+    Minimax(MinimaxStats),
+}
+
 pub trait Agent: Send {
     fn select_ply(&mut self, board: &Board, config: &BoardConfig) -> Option<Ply>;
+
+    fn take_stats(&mut self) -> AgentStats;
 }
 
 #[derive(Debug)]
@@ -43,6 +109,13 @@ impl BreakthroughAgent {
         match self {
             Self::Minimax(agent) => agent.select_ply(board, config),
             Self::Human => None,
+        }
+    }
+
+    pub fn take_stats(&mut self) -> AgentStats {
+        match self {
+            Self::Minimax(agent) => agent.take_stats(),
+            Self::Human => AgentStats::None,
         }
     }
 

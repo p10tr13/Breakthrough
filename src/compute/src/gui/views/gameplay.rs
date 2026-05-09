@@ -1,9 +1,14 @@
 mod gameplay_action;
 mod gameplay_controller;
 
+use std::path::PathBuf;
+
 use crate::{
     BreakthroughConfig,
-    agents::{BreakthroughAgent, MinimaxAgent},
+    agents::{
+        AgentConfig, AgentStatsAccumulator, BreakthroughAgent, CommonMetrics, HumanMetrics,
+        MinimaxAgent, MinimaxMetrics, append_record_to_jsonl,
+    },
     core::{Board, BoardConfig, Player, Status},
     gui::themes::BoardTheme,
 };
@@ -28,14 +33,17 @@ pub struct GameplayView {
     board: Board,
     theme: BoardTheme,
     flip_board: bool,
+    white_output: PathBuf,
+    black_output: PathBuf,
     pan: egui::Vec2,
     zoom: f32,
     selected_square: Option<u8>,
+    pub metrics_saved: bool,
     pub gameplay_controller: GameplayController,
 }
 
 impl GameplayView {
-    pub fn new(config: BreakthroughConfig) -> Self {
+    pub fn new(config: BreakthroughConfig, white_output: PathBuf, black_output: PathBuf) -> Self {
         let board_config = BoardConfig::new(config.board_width, config.board_height);
         let board = Board::new(config.board_width, config.board_height);
         let flip_board = !config.white_player.is_human() && config.black_player.is_human();
@@ -51,10 +59,13 @@ impl GameplayView {
             board_config,
             board,
             flip_board,
+            white_output,
+            black_output,
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
             selected_square: None,
             theme: BoardTheme::default(),
+            metrics_saved: false,
             gameplay_controller,
         }
     }
@@ -69,11 +80,16 @@ impl GameplayView {
     }
 
     pub fn show(&mut self, ctx: &egui::Context) -> Option<GameplayAction> {
-        if let Some(ply) = self.gameplay_controller.try_receive_ply(self.board.turn) {
+        if let Some(ply) = self
+            .gameplay_controller
+            .try_receive_ply(self.board.turn, self.board_config.width)
+        {
             self.board.apply_ply(ply);
             self.gameplay_controller
                 .trigger_ai_ply(&self.board, &self.board_config);
         }
+
+        self.check_and_save_metrics();
 
         let mut action = self.show_game_over_popup(ctx);
 
@@ -396,6 +412,11 @@ impl GameplayView {
                     .find(|ply| ply.from == from_bit && ply.to == clicked_bit);
 
                 if let Some(ply) = valid_move {
+                    self.gameplay_controller.record_human_ply(
+                        self.board.turn,
+                        ply,
+                        self.board_config.width,
+                    );
                     self.board.apply_ply(ply);
                     self.selected_square = None;
                     self.gameplay_controller
@@ -451,5 +472,113 @@ impl GameplayView {
             }
             self.zoom = new_zoom;
         }
+    }
+
+    fn check_and_save_metrics(&mut self) {
+        let status = self.board.get_status(&self.board_config);
+
+        if status.is_ongoing() || self.metrics_saved {
+            return;
+        }
+
+        let is_white_won = status.is_white_won();
+        let white_pieces = self.board.get_piece_count(Player::White) as u8;
+        let black_pieces = self.board.get_piece_count(Player::Black) as u8;
+
+        let white_common = CommonMetrics {
+            board_width: self.board_config.width,
+            board_height: self.board_config.height,
+            seed: self.config.seed,
+            agent_type: (&self.config.white_player).into(),
+            agent_color: Player::White,
+            agent_won: is_white_won,
+            pieces_remaining: white_pieces,
+            total_time_ms: self.gameplay_controller.white_stats.total_time_ms,
+            total_moves: self.gameplay_controller.white_stats.total_moves,
+            moves: self.gameplay_controller.white_stats.move_history.join(";"),
+            opponent_type: (&self.config.black_player).into(),
+            opponent_pieces_remaining: black_pieces,
+        };
+
+        match &self.gameplay_controller.white_stats.stats_accumulator {
+            AgentStatsAccumulator::Minimax(acc) => {
+                let AgentConfig::Minimax {
+                    max_depth,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                } = self.config.white_player
+                else {
+                    unreachable!();
+                };
+                let metrics = MinimaxMetrics {
+                    common: white_common,
+                    max_depth,
+                    total_nodes_evaluated: acc.total_nodes,
+                    total_cutoffs: acc.total_cutoffs,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.white_output.clone());
+            }
+            AgentStatsAccumulator::None => {
+                let metrics = HumanMetrics {
+                    common: white_common,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.white_output.clone());
+            }
+        }
+
+        let black_common = CommonMetrics {
+            board_width: self.board_config.width,
+            board_height: self.board_config.height,
+            seed: self.config.seed,
+            agent_type: (&self.config.black_player).into(),
+            agent_color: Player::Black,
+            agent_won: !is_white_won,
+            pieces_remaining: black_pieces,
+            total_time_ms: self.gameplay_controller.black_stats.total_time_ms,
+            total_moves: self.gameplay_controller.black_stats.total_moves,
+            moves: self.gameplay_controller.black_stats.move_history.join(";"),
+            opponent_type: (&self.config.white_player).into(),
+            opponent_pieces_remaining: white_pieces,
+        };
+
+        match &self.gameplay_controller.black_stats.stats_accumulator {
+            AgentStatsAccumulator::Minimax(acc) => {
+                let AgentConfig::Minimax {
+                    max_depth,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                } = self.config.black_player
+                else {
+                    unreachable!();
+                };
+                let metrics = MinimaxMetrics {
+                    common: black_common,
+                    max_depth,
+                    total_nodes_evaluated: acc.total_nodes,
+                    total_cutoffs: acc.total_cutoffs,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.black_output.clone());
+            }
+            AgentStatsAccumulator::None => {
+                let metrics = HumanMetrics {
+                    common: black_common,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.black_output.clone());
+            }
+        }
+
+        self.metrics_saved = true;
     }
 }

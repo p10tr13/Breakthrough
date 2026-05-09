@@ -1,10 +1,11 @@
 use std::{
     sync::mpsc::{self, Receiver},
     thread,
+    time::Instant,
 };
 
 use crate::{
-    agents::{AgentConfig, BreakthroughAgent},
+    agents::{AgentConfig, AgentRuntimeStats, AgentStats, BreakthroughAgent},
     core::{Board, BoardConfig, Player, Ply},
 };
 
@@ -13,7 +14,11 @@ use macroquad::prelude::*;
 pub struct GameplayController {
     white_agent: BreakthroughAgent,
     black_agent: BreakthroughAgent,
-    ply_receiver: Option<Receiver<(BreakthroughAgent, Option<Ply>)>>,
+    turn_timer: Instant,
+    ply_receiver: Option<Receiver<(BreakthroughAgent, Option<Ply>, AgentStats)>>,
+
+    pub white_stats: AgentRuntimeStats,
+    pub black_stats: AgentRuntimeStats,
 }
 
 impl GameplayController {
@@ -21,6 +26,9 @@ impl GameplayController {
         Self {
             white_agent: white_config.create_agent(seed),
             black_agent: black_config.create_agent(seed),
+            white_stats: AgentRuntimeStats::new(&white_config.into()),
+            black_stats: AgentRuntimeStats::new(&black_config.into()),
+            turn_timer: Instant::now(),
             ply_receiver: None,
         }
     }
@@ -29,15 +37,29 @@ impl GameplayController {
         self.ply_receiver.is_some()
     }
 
-    pub fn try_receive_ply(&mut self, current_turn: Player) -> Option<Ply> {
+    pub fn try_receive_ply(&mut self, current_turn: Player, board_width: u8) -> Option<Ply> {
         if let Some(rx) = &self.ply_receiver
-            && let Ok((agent, ply)) = rx.try_recv()
+            && let Ok((agent, ply, stats)) = rx.try_recv()
         {
+            let time_taken = self.turn_timer.elapsed().as_millis();
+            let ply_str = ply
+                .map(|p| p.encode(board_width))
+                .unwrap_or_else(|| "none".to_string());
+
             match current_turn {
-                Player::White => self.white_agent = agent,
-                Player::Black => self.black_agent = agent,
+                Player::White => {
+                    self.white_agent = agent;
+                    self.white_stats.record_move(ply_str, time_taken, stats);
+                }
+                Player::Black => {
+                    self.black_agent = agent;
+                    self.black_stats.record_move(ply_str, time_taken, stats);
+                }
             }
+
             self.ply_receiver = None;
+            self.turn_timer = Instant::now();
+
             return ply;
         }
         None
@@ -73,6 +95,8 @@ impl GameplayController {
             std::mem::replace(&mut self.black_agent, BreakthroughAgent::Human)
         };
 
+        self.turn_timer = Instant::now();
+
         let (tx, rx) = mpsc::channel();
         self.ply_receiver = Some(rx);
 
@@ -81,7 +105,24 @@ impl GameplayController {
 
         thread::spawn(move || {
             let ply = agent.select_ply(&board_copy, &config_copy);
-            let _ = tx.send((agent, ply));
+            let stats = agent.take_stats();
+            let _ = tx.send((agent, ply, stats));
         });
+    }
+
+    pub fn record_human_ply(&mut self, current_turn: Player, ply: Ply, board_width: u8) {
+        let time_taken = self.turn_timer.elapsed().as_millis();
+        let ply_str = ply.encode(board_width);
+
+        match current_turn {
+            Player::White => self
+                .white_stats
+                .record_move(ply_str, time_taken, AgentStats::None),
+            Player::Black => self
+                .black_stats
+                .record_move(ply_str, time_taken, AgentStats::None),
+        }
+
+        self.turn_timer = Instant::now();
     }
 }

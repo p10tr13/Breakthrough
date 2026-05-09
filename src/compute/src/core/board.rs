@@ -47,6 +47,14 @@ impl Board {
         self.turn = self.turn.opponent();
     }
 
+    pub fn get_piece_count(&self, player: Player) -> u32 {
+        let board = match player {
+            Player::White => self.white_board,
+            Player::Black => self.black_board,
+        };
+        board.count_ones()
+    }
+
     pub fn get_legal_plies_for_piece(&self, square: u8, config: &BoardConfig) -> Vec<Ply> {
         let piece_mask = 1_u128 << square;
 
@@ -303,6 +311,18 @@ mod tests {
         board.black_board = 0;
         board.white_board = 1 << 8;
         assert_eq!(board.get_status(&config), Status::WhiteWon);
+    }
+
+    #[test]
+    fn test_get_piece_count() {
+        let board = Board {
+            white_board: 0b0001_0001_0001_0001, // 4 White pieces
+            black_board: 0b1000_1000_1000_1000, // 4 Black pieces
+            turn: Player::White,
+        };
+
+        assert_eq!(board.get_piece_count(Player::White), 4);
+        assert_eq!(board.get_piece_count(Player::Black), 4);
     }
 
     #[test]

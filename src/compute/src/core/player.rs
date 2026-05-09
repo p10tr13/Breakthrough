@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
-#[derive(Debug, Default, Display, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Display, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Player {
     #[default]

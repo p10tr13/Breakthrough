@@ -1,7 +1,11 @@
+mod error;
+
 pub mod agents;
 pub mod cli;
 pub mod core;
 pub mod gui;
+
+pub use error::{ComputeError, ComputeResult};
 
 use serde::{Deserialize, Serialize};
 

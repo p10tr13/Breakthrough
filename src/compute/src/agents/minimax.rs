@@ -1,10 +1,14 @@
 #![allow(dead_code)]
 
 mod heuristic;
+mod metrics;
+mod stats;
 
-use super::Agent;
+pub use stats::{MinimaxStats, MinimaxStatsAccumulator};
 
-use heuristic::{HeuristicEvaluator, PositionEvaluator};
+use super::{Agent, AgentStats};
+
+pub use heuristic::{HeuristicEvaluator, PositionEvaluator};
 
 use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
@@ -16,24 +20,33 @@ pub struct MinimaxAgent {
     pub max_depth: u8,
     pub heuristic: Box<dyn PositionEvaluator>,
     pub rng: SmallRng,
+    pub current_stats: MinimaxStats,
 }
 
 impl Agent for MinimaxAgent {
     fn select_ply(&mut self, board: &Board, config: &BoardConfig) -> Option<Ply> {
+        self.current_stats = MinimaxStats::default();
+
         let alpha = self.heuristic.score_loss() * 2;
         let beta = self.heuristic.score_win() * 2;
 
         let (_, best_move) = self.alphabeta(*board, self.max_depth, alpha, beta, config);
         best_move
     }
+
+    fn take_stats(&mut self) -> AgentStats {
+        let stats = std::mem::take(&mut self.current_stats);
+        AgentStats::Minimax(stats)
+    }
 }
 
 impl MinimaxAgent {
-    pub fn new(max_depth: u8, seed: u64) -> Self {
+    pub fn new(max_depth: u8, seed: u64, heuristic: Box<dyn PositionEvaluator>) -> Self {
         Self {
             max_depth,
-            heuristic: Box::new(HeuristicEvaluator::default()),
+            heuristic,
             rng: SmallRng::seed_from_u64(seed),
+            current_stats: MinimaxStats::default(),
         }
     }
 
@@ -46,6 +59,7 @@ impl MinimaxAgent {
             max_depth,
             heuristic,
             rng: SmallRng::seed_from_u64(seed),
+            current_stats: MinimaxStats::default(),
         }
     }
 
@@ -57,6 +71,8 @@ impl MinimaxAgent {
         mut beta: i32,
         config: &BoardConfig,
     ) -> (i32, Option<Ply>) {
+        self.current_stats.nodes_evaluated += 1;
+
         let higher_score = self.heuristic.score_win() + depth as i32;
         let lower_score = self.heuristic.score_loss() - depth as i32;
         let status = board.get_status(config);
@@ -129,6 +145,7 @@ impl MinimaxAgent {
 
                 alpha = alpha.max(eval);
                 if beta <= alpha {
+                    self.current_stats.cutoffs += 1;
                     break;
                 }
             }
@@ -156,6 +173,7 @@ impl MinimaxAgent {
 
                 beta = beta.min(eval);
                 if beta <= alpha {
+                    self.current_stats.cutoffs += 1;
                     break;
                 }
             }
@@ -170,7 +188,7 @@ mod tests {
     use crate::core::{Board, BoardConfig, Player, Ply};
 
     fn create_agent() -> MinimaxAgent {
-        MinimaxAgent::new(3, 42)
+        MinimaxAgent::new(3, 42, Box::new(HeuristicEvaluator::default()))
     }
 
     #[test]

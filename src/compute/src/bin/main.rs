@@ -6,13 +6,22 @@ use miette::{IntoDiagnostic, Result};
 
 use compute::{
     BreakthroughConfig,
+    agents::AgentType,
     cli::build_command,
     gui::{GameplayAction, GameplayView, MenuAction, MenuView},
 };
 
 enum AppState {
-    Menu(BreakthroughConfig),
-    Gameplay(Box<GameplayView>),
+    Menu {
+        config: BreakthroughConfig,
+        white_output: PathBuf,
+        black_output: PathBuf,
+    },
+    Gameplay {
+        gameplay_view: Box<GameplayView>,
+        white_output: PathBuf,
+        black_output: PathBuf,
+    },
 }
 
 #[macroquad::main("Breakthrough")]
@@ -22,9 +31,20 @@ async fn main() -> Result<()> {
     let command = build_command();
     let matches = command.get_matches();
 
+    let white_output = matches.get_one::<PathBuf>("white-output").unwrap();
+    let black_output = matches.get_one::<PathBuf>("black-output").unwrap();
+
     let config_path = matches.get_one::<PathBuf>("config").unwrap();
     let config_content = std::fs::read_to_string(config_path).into_diagnostic()?;
     let mut config: BreakthroughConfig = toml::from_str(&config_content).into_diagnostic()?;
+
+    if !config.white_player.is_human() && !config.black_player.is_human() {
+        return Err(miette::miette!(
+            "At least one player must be human (white: {}, black: {})",
+            Into::<AgentType>::into(&config.white_player),
+            Into::<AgentType>::into(&config.black_player)
+        ));
+    }
 
     if let Some(board_width) = matches.get_one::<u8>("board-width") {
         config.board_width = *board_width;
@@ -39,7 +59,11 @@ async fn main() -> Result<()> {
 
     dbg!(&config);
 
-    let mut state = AppState::Menu(config);
+    let mut state = AppState::Menu {
+        config,
+        white_output: white_output.clone(),
+        black_output: black_output.clone(),
+    };
     let mut image_loaders_installed = false;
 
     loop {
@@ -72,7 +96,11 @@ fn handle_state(egui_ctx: &egui::Context, state: &mut AppState) {
     let mut next_state = None;
 
     match state {
-        AppState::Menu(config) => {
+        AppState::Menu {
+            config,
+            white_output,
+            black_output,
+        } => {
             let frame = egui::Frame::NONE
                 .fill(egui::Color32::from_rgb(15, 15, 15))
                 .inner_margin(egui::Margin::same(20));
@@ -86,9 +114,17 @@ fn handle_state(egui_ctx: &egui::Context, state: &mut AppState) {
                         if let Some(action) = menu.show(ui) {
                             match action {
                                 MenuAction::GoToGameplay => {
-                                    let mut gameplay_view = GameplayView::new(config.clone());
+                                    let mut gameplay_view = GameplayView::new(
+                                        config.clone(),
+                                        white_output.clone(),
+                                        black_output.clone(),
+                                    );
                                     gameplay_view.trigger_ai_ply();
-                                    next_state = Some(AppState::Gameplay(Box::new(gameplay_view)));
+                                    next_state = Some(AppState::Gameplay {
+                                        gameplay_view: Box::new(gameplay_view),
+                                        white_output: white_output.clone(),
+                                        black_output: black_output.clone(),
+                                    });
                                 }
                                 MenuAction::Exit => {
                                     std::process::exit(0);
@@ -98,12 +134,20 @@ fn handle_state(egui_ctx: &egui::Context, state: &mut AppState) {
                     });
                 });
         }
-        AppState::Gameplay(gameplay_view) => {
+        AppState::Gameplay {
+            gameplay_view,
+            white_output,
+            black_output,
+        } => {
             if let Some(action) = gameplay_view.show(egui_ctx) {
                 match action {
                     GameplayAction::BackToMenu => {
                         let config = gameplay_view.get_config().clone();
-                        next_state = Some(AppState::Menu(config));
+                        next_state = Some(AppState::Menu {
+                            config,
+                            white_output: white_output.clone(),
+                            black_output: black_output.clone(),
+                        });
                     }
                 }
             }
