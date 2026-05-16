@@ -6,7 +6,7 @@ use compute::{
     BreakthroughConfig,
     agents::{
         AgentConfig, AgentRuntimeStats, AgentStatsAccumulator, AgentType, CommonMetrics,
-        HumanMetrics, MinimaxMetrics, append_record_to_jsonl,
+        HumanMetrics, MctsMetrics, MinimaxMetrics, append_record_to_jsonl,
     },
     cli::build_command,
     core::{Board, BoardConfig, Player},
@@ -141,6 +141,25 @@ fn main() -> Result<()> {
             };
             append_record_to_jsonl(&metrics, white_output).into_diagnostic()?;
         }
+        AgentStatsAccumulator::Mcts(acc) => {
+            let AgentConfig::Mcts {
+                max_iterations,
+                max_time_ms,
+                exploration_constant,
+            } = config.white_player.clone()
+            else {
+                unreachable!();
+            };
+            let metrics = MctsMetrics {
+                common: white_common,
+                max_iterations,
+                max_time_ms,
+                exploration_constant,
+                total_iterations: acc.total_iterations,
+                total_nodes_created: acc.total_nodes_created,
+            };
+            append_record_to_jsonl(&metrics, white_output).into_diagnostic()?;
+        }
         AgentStatsAccumulator::None => {
             let metrics = HumanMetrics {
                 common: white_common,
@@ -185,6 +204,25 @@ fn main() -> Result<()> {
                 advancement_weight,
                 defended_weight,
                 edge_penalty_weight,
+            };
+            append_record_to_jsonl(&metrics, black_output).into_diagnostic()?;
+        }
+        AgentStatsAccumulator::Mcts(acc) => {
+            let AgentConfig::Mcts {
+                max_iterations,
+                max_time_ms,
+                exploration_constant,
+            } = config.black_player.clone()
+            else {
+                unreachable!();
+            };
+            let metrics = MctsMetrics {
+                common: black_common,
+                max_iterations,
+                max_time_ms,
+                exploration_constant,
+                total_iterations: acc.total_iterations,
+                total_nodes_created: acc.total_nodes_created,
             };
             append_record_to_jsonl(&metrics, black_output).into_diagnostic()?;
         }

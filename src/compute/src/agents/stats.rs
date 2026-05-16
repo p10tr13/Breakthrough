@@ -1,11 +1,12 @@
 use crate::agents::AgentStats;
 
-use super::{AgentType, MinimaxStatsAccumulator};
+use super::{AgentType, MctsStatsAccumulator, MinimaxStatsAccumulator};
 
 #[derive(Debug, Clone)]
 pub enum AgentStatsAccumulator {
     None,
     Minimax(MinimaxStatsAccumulator),
+    Mcts(MctsStatsAccumulator),
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,7 @@ impl AgentRuntimeStats {
                 AgentType::Minimax => {
                     AgentStatsAccumulator::Minimax(MinimaxStatsAccumulator::default())
                 }
+                AgentType::Mcts => AgentStatsAccumulator::Mcts(MctsStatsAccumulator::default()),
                 AgentType::Human => AgentStatsAccumulator::None,
             },
         }
@@ -38,6 +40,9 @@ impl AgentRuntimeStats {
 
         match (&mut self.stats_accumulator, move_stats) {
             (AgentStatsAccumulator::Minimax(acc), AgentStats::Minimax(stats)) => {
+                acc.accumulate(&stats);
+            }
+            (AgentStatsAccumulator::Mcts(acc), AgentStats::Mcts(stats)) => {
                 acc.accumulate(&stats);
             }
             (AgentStatsAccumulator::None, AgentStats::None) => {

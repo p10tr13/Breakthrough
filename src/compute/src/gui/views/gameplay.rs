@@ -7,7 +7,7 @@ use crate::{
     BreakthroughConfig,
     agents::{
         AgentConfig, AgentStatsAccumulator, BreakthroughAgent, CommonMetrics, HumanMetrics,
-        MinimaxAgent, MinimaxMetrics, append_record_to_jsonl,
+        MctsAgent, MctsMetrics, MinimaxAgent, MinimaxMetrics, append_record_to_jsonl,
     },
     core::{Board, BoardConfig, Player, Status},
     gui::themes::BoardTheme,
@@ -125,6 +125,9 @@ impl GameplayView {
                         BreakthroughAgent::Minimax(minimax) => {
                             Self::show_minimax_settings(ui, minimax, &opponent_player_label);
                         }
+                        BreakthroughAgent::Mcts(mcts) => {
+                            Self::show_mcts_settings(ui, mcts, &opponent_player_label);
+                        }
                         BreakthroughAgent::Human => {
                             ui.label(format!("Opponent ({opponent_player_label}) is also Human.",));
                         }
@@ -166,6 +169,41 @@ impl GameplayView {
         ui.label(egui::RichText::new(format!("{player_label} Player (Minimax):")).strong());
         ui.add_space(5.0);
         ui.add(egui::Slider::new(&mut agent.max_depth, 1..=8).text("Search Depth"));
+    }
+
+    fn show_mcts_settings(ui: &mut egui::Ui, agent: &mut MctsAgent, player_label: &str) {
+        ui.label(egui::RichText::new(format!("{player_label} Player (MCTS):")).strong());
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            if ui
+                .radio(agent.max_time_ms.is_none(), "Iterations")
+                .clicked()
+            {
+                agent.max_time_ms = None;
+            }
+            if ui
+                .radio(agent.max_time_ms.is_some(), "Time Limit")
+                .clicked()
+            {
+                agent.max_time_ms = Some(1000);
+            }
+        });
+
+        if let Some(ref mut max_time) = agent.max_time_ms {
+            ui.add(
+                egui::Slider::new(max_time, 100..=10000)
+                    .text("ms")
+                    .logarithmic(true),
+            );
+        } else {
+            ui.add(
+                egui::Slider::new(&mut agent.max_iterations, 1000..=100000)
+                    .text("iters")
+                    .logarithmic(true),
+            );
+        }
+
+        ui.add(egui::Slider::new(&mut agent.exploration_constant, 0.0..=5.0).text("exploration"));
     }
 
     fn show_agent_thinking(ui: &mut egui::Ui) {
@@ -524,6 +562,26 @@ impl GameplayView {
                 };
                 let _ = append_record_to_jsonl(&metrics, self.white_output.clone());
             }
+            AgentStatsAccumulator::Mcts(acc) => {
+                let AgentConfig::Mcts {
+                    max_iterations,
+                    max_time_ms,
+                    exploration_constant,
+                    ..
+                } = self.config.white_player
+                else {
+                    unreachable!();
+                };
+                let metrics = MctsMetrics {
+                    common: white_common,
+                    max_iterations,
+                    max_time_ms,
+                    exploration_constant,
+                    total_iterations: acc.total_iterations,
+                    total_nodes_created: acc.total_nodes_created,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.white_output.clone());
+            }
             AgentStatsAccumulator::None => {
                 let metrics = HumanMetrics {
                     common: white_common,
@@ -568,6 +626,26 @@ impl GameplayView {
                     advancement_weight,
                     defended_weight,
                     edge_penalty_weight,
+                };
+                let _ = append_record_to_jsonl(&metrics, self.black_output.clone());
+            }
+            AgentStatsAccumulator::Mcts(acc) => {
+                let AgentConfig::Mcts {
+                    max_iterations,
+                    max_time_ms,
+                    exploration_constant,
+                    ..
+                } = self.config.black_player
+                else {
+                    unreachable!();
+                };
+                let metrics = MctsMetrics {
+                    common: black_common,
+                    max_iterations,
+                    max_time_ms,
+                    exploration_constant,
+                    total_iterations: acc.total_iterations,
+                    total_nodes_created: acc.total_nodes_created,
                 };
                 let _ = append_record_to_jsonl(&metrics, self.black_output.clone());
             }

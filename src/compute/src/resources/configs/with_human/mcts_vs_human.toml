@@ -1,0 +1,9 @@
+board_width = 11
+board_height = 11
+seed = 42
+
+[black_player]
+type = "Mcts"
+
+[white_player]
+type = "Human"

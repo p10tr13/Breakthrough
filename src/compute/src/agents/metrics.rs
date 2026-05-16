@@ -43,6 +43,7 @@ pub enum AgentType {
     #[default]
     Human,
     Minimax,
+    Mcts,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,4 +85,15 @@ pub struct MinimaxMetrics {
     pub advancement_weight: i32,
     pub defended_weight: i32,
     pub edge_penalty_weight: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MctsMetrics {
+    #[serde(flatten)]
+    pub common: CommonMetrics,
+    pub max_iterations: u32,
+    pub max_time_ms: Option<u64>,
+    pub exploration_constant: f64,
+    pub total_iterations: u64,
+    pub total_nodes_created: u64,
 }
