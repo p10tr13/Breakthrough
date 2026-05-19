@@ -1,10 +1,10 @@
-board_width = 11
-board_height = 11
+board_width = 8
+board_height = 8
 seed = 42
 
 [black_player]
 type = "Minimax"
-max_depth = 4
+max_depth = 5
 
 [white_player]
 type = "Human"

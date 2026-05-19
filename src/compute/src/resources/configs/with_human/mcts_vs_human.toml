@@ -1,5 +1,5 @@
-board_width = 11
-board_height = 11
+board_width = 6
+board_height = 7
 seed = 42
 
 [black_player]

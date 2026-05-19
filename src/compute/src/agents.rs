@@ -17,10 +17,10 @@ fn default_max_depth() -> u8 {
 }
 
 fn default_material() -> i32 {
-    100
+    200
 }
 fn default_advancement() -> i32 {
-    10
+    5
 }
 fn default_defended() -> i32 {
     5

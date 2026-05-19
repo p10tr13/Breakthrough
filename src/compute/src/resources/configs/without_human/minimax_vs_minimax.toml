@@ -5,7 +5,11 @@ seed = 42
 [black_player]
 type = "Minimax"
 max_depth = 4
+material_weight = 200
+advancement_weight = 5
 
 [white_player]
 type = "Minimax"
 max_depth = 5
+material_weight = 200
+advancement_weight = 5

@@ -24,7 +24,7 @@ impl Default for HeuristicEvaluator {
     fn default() -> Self {
         Self {
             material_weight: 10,
-            advancement_weight: 40,
+            advancement_weight: 10,
             defended_weight: 5,
             edge_penalty_weight: -2,
         }
@@ -52,19 +52,25 @@ impl HeuristicEvaluator {
         white_count - black_count
     }
 
-    fn evaluate_piece_advancement(&self, board: &Board, config: &BoardConfig) -> i32 {
-        let white_highest_bit = match board.white_board == 0 {
-            true => 0,
-            false => 127 - board.white_board.leading_zeros() as i32,
-        };
-        let white_advancement = white_highest_bit / config.width as i32;
+    fn advancement_score(&self, board: u128, is_white: bool, config: &BoardConfig) -> i32 {
+        let mut score = 0;
+        let mut pieces = board;
+        let height = config.height as i32;
+        let width = config.width as i32;
 
-        let black_lowest_bit = match board.black_board == 0 {
-            true => 127,
-            false => board.black_board.trailing_zeros() as i32,
-        };
-        let black_advancement =
-            (config.height as i32 - 1) - (black_lowest_bit / config.width as i32);
+        while pieces != 0 {
+            let square = pieces.trailing_zeros() as i32;
+            let row = square / width;
+            let advancement = if is_white { row } else { (height - 1) - row };
+            score += 1 << advancement;
+            pieces &= pieces - 1;
+        }
+        score
+    }
+
+    fn evaluate_piece_advancement(&self, board: &Board, config: &BoardConfig) -> i32 {
+        let white_advancement = self.advancement_score(board.white_board, true, config);
+        let black_advancement = self.advancement_score(board.black_board, false, config);
 
         white_advancement - black_advancement
     }
@@ -151,16 +157,16 @@ mod tests {
         let config = BoardConfig::new(4, 4);
         let evaluator = HeuristicEvaluator::default();
 
-        // White advancement: 9 / 4 = 2
-        // Black advancement: (4 - 1) - (14 / 4) = 3 - 3 = 0
+        // White advancement: 1 << (9 / 4) = 1 << 2 = 4
+        // Black advancement: 1 << ((4 - 1) - (14 / 4)) = 1 << (3 - 3) = 1 << 0 = 1
         let board = Board {
             white_board: 1 << 9,
             black_board: 1 << 14,
             turn: Player::White,
         };
 
-        // 2 - 0 = 2
-        assert_eq!(evaluator.evaluate_piece_advancement(&board, &config), 2);
+        // 4 - 1 = 3
+        assert_eq!(evaluator.evaluate_piece_advancement(&board, &config), 3);
     }
 
     #[test]
@@ -239,9 +245,15 @@ mod tests {
         };
 
         // expected result calculation:
-        // (10 * 2) + (40 * 1) + (5 * 2) + (-2 * 2)
-        // = 20 + 40 + 10 - 4 = 66
+        // Material: (3 - 1) * 10 = 20
+        // Advancement:
+        // White: (1<<0) + (1<<1) + (1<<1) = 1 + 2 + 2 = 5
+        // Black: 1<<(2-2) = 1<<0 = 1
+        // (5 - 1) * 40 = 160
+        // Defense: White(2) - Black(0) = 2. 2 * 5 = 10
+        // Edges: White(2) - Black(0) = 2. 2 * -2 = -4
+        // Total: 20 + 160 + 10 - 4 = 186
 
-        assert_eq!(evaluator.evaluate(&board, &config), 66);
+        assert_eq!(evaluator.evaluate(&board, &config), 186);
     }
 }
