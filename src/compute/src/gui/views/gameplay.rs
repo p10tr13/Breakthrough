@@ -531,9 +531,9 @@ impl GameplayView {
             agent_color: Player::White,
             agent_won: is_white_won,
             pieces_remaining: white_pieces,
-            total_time_ms: self.gameplay_controller.white_stats.total_time_ms,
+            move_times_ms: self.gameplay_controller.white_stats.move_times_ms.clone(),
             total_moves: self.gameplay_controller.white_stats.total_moves,
-            moves: self.gameplay_controller.white_stats.move_history.join(";"),
+            moves: self.gameplay_controller.white_stats.move_history.clone(),
             opponent_type: (&self.config.black_player).into(),
             opponent_pieces_remaining: black_pieces,
         };
@@ -598,9 +598,9 @@ impl GameplayView {
             agent_color: Player::Black,
             agent_won: !is_white_won,
             pieces_remaining: black_pieces,
-            total_time_ms: self.gameplay_controller.black_stats.total_time_ms,
+            move_times_ms: self.gameplay_controller.black_stats.move_times_ms.clone(),
             total_moves: self.gameplay_controller.black_stats.total_moves,
-            moves: self.gameplay_controller.black_stats.move_history.join(";"),
+            moves: self.gameplay_controller.black_stats.move_history.clone(),
             opponent_type: (&self.config.white_player).into(),
             opponent_pieces_remaining: white_pieces,
         };

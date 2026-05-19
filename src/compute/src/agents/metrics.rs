@@ -55,9 +55,9 @@ pub struct CommonMetrics {
     pub agent_color: Player,
     pub agent_won: bool,
     pub pieces_remaining: u8,
-    pub total_time_ms: u128,
+    pub move_times_ms: Vec<u128>,
     pub total_moves: usize,
-    pub moves: String,
+    pub moves: Vec<String>,
     pub opponent_type: AgentType,
     pub opponent_pieces_remaining: u8,
 }

@@ -6,6 +6,9 @@ requires-python = ">=3.13"
 dependencies = [
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
+    "pandas>=3.0.3",
+    "seaborn>=0.13.2",
+    "tomli-w>=1.2.0",
 ]
 
 [dependency-groups]

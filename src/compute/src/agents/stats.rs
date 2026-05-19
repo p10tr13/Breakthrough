@@ -11,7 +11,7 @@ pub enum AgentStatsAccumulator {
 
 #[derive(Debug, Clone)]
 pub struct AgentRuntimeStats {
-    pub total_time_ms: u128,
+    pub move_times_ms: Vec<u128>,
     pub total_moves: usize,
     pub move_history: Vec<String>,
     pub stats_accumulator: AgentStatsAccumulator,
@@ -20,7 +20,7 @@ pub struct AgentRuntimeStats {
 impl AgentRuntimeStats {
     pub fn new(agent_type: &AgentType) -> Self {
         Self {
-            total_time_ms: 0,
+            move_times_ms: vec![],
             total_moves: 0,
             move_history: Vec::new(),
             stats_accumulator: match agent_type {
@@ -36,7 +36,7 @@ impl AgentRuntimeStats {
     pub fn record_move(&mut self, ply_str: String, time_ms: u128, move_stats: AgentStats) {
         self.total_moves += 1;
         self.move_history.push(ply_str);
-        self.total_time_ms += time_ms;
+        self.move_times_ms.push(time_ms);
 
         match (&mut self.stats_accumulator, move_stats) {
             (AgentStatsAccumulator::Minimax(acc), AgentStats::Minimax(stats)) => {

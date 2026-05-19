@@ -110,9 +110,9 @@ fn main() -> Result<()> {
         agent_color: Player::White,
         agent_won: is_white_won,
         pieces_remaining: white_pieces,
-        total_time_ms: white_stats.total_time_ms,
+        move_times_ms: white_stats.move_times_ms,
         total_moves: white_stats.total_moves,
-        moves: white_stats.move_history.join(";"),
+        moves: white_stats.move_history,
         opponent_type: (&config.black_player).into(),
         opponent_pieces_remaining: black_pieces,
     };
@@ -176,9 +176,9 @@ fn main() -> Result<()> {
         agent_color: Player::Black,
         agent_won: !is_white_won,
         pieces_remaining: black_pieces,
-        total_time_ms: black_stats.total_time_ms,
+        move_times_ms: black_stats.move_times_ms,
         total_moves: black_stats.total_moves,
-        moves: black_stats.move_history.join(";"),
+        moves: black_stats.move_history,
         opponent_type: (&config.white_player).into(),
         opponent_pieces_remaining: white_pieces,
     };
