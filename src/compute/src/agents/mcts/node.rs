@@ -1,5 +1,11 @@
 use crate::core::{Player, Ply};
 
+#[derive(Debug, Default, Clone, Copy)]
+pub struct AmafStats {
+    pub visits: u32,
+    pub wins: f64,
+}
+
 #[derive(Debug, Default)]
 pub struct MctsNode {
     pub parent: Option<usize>,
@@ -11,6 +17,8 @@ pub struct MctsNode {
     pub wins: f64,
 
     pub turn: Player,
+
+    pub amaf: AmafStats,
 }
 
 impl MctsNode {
@@ -22,7 +30,6 @@ impl MctsNode {
     ) -> Self {
         Self {
             parent,
-            children: Vec::new(),
             ply_to_reach,
             unexpanded_plies,
             turn,

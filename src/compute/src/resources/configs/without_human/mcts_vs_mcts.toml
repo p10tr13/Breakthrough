@@ -1,0 +1,15 @@
+board_width = 8
+board_height = 8
+seed = 42
+
+[black_player]
+type = "Mcts"
+max_iterations = 50000
+exploration_constant = 1.41
+use_rave = true
+
+[white_player]
+type = "Mcts"
+max_iterations = 50000
+exploration_constant = 1.41
+use_heavy_playouts = true

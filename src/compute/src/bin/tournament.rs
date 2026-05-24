@@ -5,7 +5,7 @@ use miette::{IntoDiagnostic, Result, miette};
 use compute::{
     BreakthroughConfig,
     agents::{
-        AgentConfig, AgentRuntimeStats, AgentStatsAccumulator, AgentType, CommonMetrics,
+        self, AgentConfig, AgentRuntimeStats, AgentStatsAccumulator, AgentType, CommonMetrics,
         HumanMetrics, MctsMetrics, MinimaxMetrics, append_record_to_jsonl,
     },
     cli::build_command,
@@ -146,15 +146,42 @@ fn main() -> Result<()> {
                 max_iterations,
                 max_time_ms,
                 exploration_constant,
+                use_rave,
+                rave_k,
+                use_heavy_playouts,
+                heavy_playouts_epsilon,
+                material_weight,
+                advancement_weight,
+                defended_weight,
+                edge_penalty_weight,
             } = config.white_player.clone()
             else {
                 unreachable!();
             };
+            let heavy_options = agents::heavy_playout_metrics_options(
+                use_heavy_playouts,
+                heavy_playouts_epsilon,
+                material_weight,
+                advancement_weight,
+                defended_weight,
+                edge_penalty_weight,
+            );
             let metrics = MctsMetrics {
                 common: white_common,
                 max_iterations,
                 max_time_ms,
                 exploration_constant,
+                use_rave,
+                use_heavy_playouts,
+
+                rave_k: if use_rave { Some(rave_k) } else { None },
+
+                heavy_playouts_epsilon: heavy_options.epsilon,
+                material_weight: heavy_options.material_weight,
+                advancement_weight: heavy_options.advancement_weight,
+                defended_weight: heavy_options.defended_weight,
+                edge_penalty_weight: heavy_options.edge_penalty_weight,
+
                 total_iterations: acc.total_iterations,
                 total_nodes_created: acc.total_nodes_created,
             };
@@ -212,15 +239,43 @@ fn main() -> Result<()> {
                 max_iterations,
                 max_time_ms,
                 exploration_constant,
+                use_rave,
+                rave_k,
+                use_heavy_playouts,
+                heavy_playouts_epsilon,
+                material_weight,
+                advancement_weight,
+                defended_weight,
+                edge_penalty_weight,
             } = config.black_player.clone()
             else {
                 unreachable!();
             };
+            let heavy_options = agents::heavy_playout_metrics_options(
+                use_heavy_playouts,
+                heavy_playouts_epsilon,
+                material_weight,
+                advancement_weight,
+                defended_weight,
+                edge_penalty_weight,
+            );
             let metrics = MctsMetrics {
                 common: black_common,
                 max_iterations,
                 max_time_ms,
                 exploration_constant,
+
+                use_rave,
+                use_heavy_playouts,
+
+                rave_k: if use_rave { Some(rave_k) } else { None },
+
+                heavy_playouts_epsilon: heavy_options.epsilon,
+                material_weight: heavy_options.material_weight,
+                advancement_weight: heavy_options.advancement_weight,
+                defended_weight: heavy_options.defended_weight,
+                edge_penalty_weight: heavy_options.edge_penalty_weight,
+
                 total_iterations: acc.total_iterations,
                 total_nodes_created: acc.total_nodes_created,
             };

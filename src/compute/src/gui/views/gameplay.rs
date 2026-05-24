@@ -6,8 +6,9 @@ use std::path::PathBuf;
 use crate::{
     BreakthroughConfig,
     agents::{
-        AgentConfig, AgentStatsAccumulator, BreakthroughAgent, CommonMetrics, HumanMetrics,
-        MctsAgent, MctsMetrics, MinimaxAgent, MinimaxMetrics, append_record_to_jsonl,
+        self, AgentConfig, AgentStatsAccumulator, BreakthroughAgent, CommonMetrics, HumanMetrics,
+        MctsAgent, MctsMetrics, MinimaxAgent, MinimaxMetrics, PlayoutStrategy, SelectionStrategy,
+        append_record_to_jsonl,
     },
     core::{Board, BoardConfig, Player, Status},
     gui::themes::BoardTheme,
@@ -104,9 +105,15 @@ impl GameplayView {
 
                 if !self.gameplay_controller.is_selecting() {
                     let is_white_turn = self.board.turn.is_white();
+                    let current_turn = self.board.turn;
+                    let opponent_config = if is_white_turn {
+                        &mut self.config.black_player
+                    } else {
+                        &mut self.config.white_player
+                    };
                     let opponent_agent = self
                         .gameplay_controller
-                        .get_opponent_agent_mut(self.board.turn);
+                        .get_opponent_agent_mut(current_turn);
                     let (current_player_label, opponent_player_label) = if is_white_turn {
                         (Player::White.to_string(), Player::Black.to_string())
                     } else {
@@ -126,7 +133,12 @@ impl GameplayView {
                             Self::show_minimax_settings(ui, minimax, &opponent_player_label);
                         }
                         BreakthroughAgent::Mcts(mcts) => {
-                            Self::show_mcts_settings(ui, mcts, &opponent_player_label);
+                            Self::show_mcts_settings(
+                                ui,
+                                mcts,
+                                opponent_config,
+                                &opponent_player_label,
+                            );
                         }
                         BreakthroughAgent::Human => {
                             ui.label(format!("Opponent ({opponent_player_label}) is also Human.",));
@@ -171,7 +183,12 @@ impl GameplayView {
         ui.add(egui::Slider::new(&mut agent.max_depth, 1..=8).text("Search Depth"));
     }
 
-    fn show_mcts_settings(ui: &mut egui::Ui, agent: &mut MctsAgent, player_label: &str) {
+    fn show_mcts_settings(
+        ui: &mut egui::Ui,
+        agent: &mut MctsAgent,
+        config: &mut AgentConfig,
+        player_label: &str,
+    ) {
         ui.label(egui::RichText::new(format!("{player_label} Player (MCTS):")).strong());
         ui.add_space(5.0);
         ui.horizontal(|ui| {
@@ -180,30 +197,159 @@ impl GameplayView {
                 .clicked()
             {
                 agent.max_time_ms = None;
+                if let AgentConfig::Mcts { max_time_ms, .. } = config {
+                    *max_time_ms = None;
+                }
             }
             if ui
                 .radio(agent.max_time_ms.is_some(), "Time Limit")
                 .clicked()
             {
                 agent.max_time_ms = Some(1000);
+                if let AgentConfig::Mcts { max_time_ms, .. } = config {
+                    *max_time_ms = agent.max_time_ms;
+                }
             }
         });
 
         if let Some(ref mut max_time) = agent.max_time_ms {
-            ui.add(
-                egui::Slider::new(max_time, 100..=10000)
-                    .text("ms")
-                    .logarithmic(true),
-            );
+            if ui
+                .add(
+                    egui::Slider::new(max_time, 100..=10000)
+                        .text("ms")
+                        .logarithmic(true),
+                )
+                .changed()
+                && let AgentConfig::Mcts { max_time_ms, .. } = config
+            {
+                *max_time_ms = Some(*max_time);
+            }
         } else {
-            ui.add(
-                egui::Slider::new(&mut agent.max_iterations, 1000..=100000)
-                    .text("iters")
-                    .logarithmic(true),
-            );
+            if ui
+                .add(
+                    egui::Slider::new(&mut agent.max_iterations, 1000..=100000)
+                        .text("iters")
+                        .logarithmic(true),
+                )
+                .changed()
+                && let AgentConfig::Mcts { max_iterations, .. } = config
+            {
+                *max_iterations = agent.max_iterations;
+            }
         }
 
-        ui.add(egui::Slider::new(&mut agent.exploration_constant, 0.0..=5.0).text("exploration"));
+        if ui
+            .add(egui::Slider::new(&mut agent.exploration_constant, 0.0..=5.0).text("exploration"))
+            .changed()
+            && let AgentConfig::Mcts {
+                exploration_constant,
+                ..
+            } = config
+        {
+            *exploration_constant = agent.exploration_constant;
+        }
+
+        ui.separator();
+
+        let mut use_rave = matches!(agent.selection_strategy, SelectionStrategy::Rave { .. });
+        if ui.checkbox(&mut use_rave, "RAVE").changed() {
+            let rave_k = match agent.selection_strategy {
+                SelectionStrategy::Rave { k } => k,
+                SelectionStrategy::Ucb1 => {
+                    if let AgentConfig::Mcts { rave_k, .. } = config {
+                        *rave_k
+                    } else {
+                        agents::DEFAULT_MCTS_RAVE_K
+                    }
+                }
+            };
+            agent.selection_strategy = agents::build_mcts_selection_strategy(use_rave, rave_k);
+            if let AgentConfig::Mcts {
+                use_rave: config_use_rave,
+                rave_k: config_rave_k,
+                ..
+            } = config
+            {
+                *config_use_rave = use_rave;
+                *config_rave_k = rave_k;
+            }
+        }
+
+        if let SelectionStrategy::Rave { k } = &mut agent.selection_strategy
+            && ui
+                .add(
+                    egui::Slider::new(k, 10.0..=10000.0)
+                        .text("RAVE k")
+                        .logarithmic(true),
+                )
+                .changed()
+            && let AgentConfig::Mcts { rave_k, .. } = config
+        {
+            *rave_k = *k;
+        }
+
+        let mut use_heavy_playouts =
+            matches!(agent.playout_strategy, PlayoutStrategy::Heavy { .. });
+        if ui
+            .checkbox(&mut use_heavy_playouts, "Heavy playouts")
+            .changed()
+        {
+            let (epsilon, material, advancement, defended, edge_penalty) =
+                if let AgentConfig::Mcts {
+                    heavy_playouts_epsilon,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                    ..
+                } = config
+                {
+                    (
+                        *heavy_playouts_epsilon,
+                        *material_weight,
+                        *advancement_weight,
+                        *defended_weight,
+                        *edge_penalty_weight,
+                    )
+                } else {
+                    (
+                        agents::DEFAULT_MCTS_HEAVY_PLAYOUTS_EPSILON,
+                        agents::DEFAULT_HEURISTIC_MATERIAL_WEIGHT,
+                        agents::DEFAULT_HEURISTIC_ADVANCEMENT_WEIGHT,
+                        agents::DEFAULT_HEURISTIC_DEFENDED_WEIGHT,
+                        agents::DEFAULT_HEURISTIC_EDGE_PENALTY_WEIGHT,
+                    )
+                };
+
+            agent.playout_strategy = agents::build_mcts_playout_strategy(
+                use_heavy_playouts,
+                epsilon,
+                material,
+                advancement,
+                defended,
+                edge_penalty,
+            );
+
+            if let AgentConfig::Mcts {
+                use_heavy_playouts: config_use_heavy_playouts,
+                ..
+            } = config
+            {
+                *config_use_heavy_playouts = use_heavy_playouts;
+            }
+        }
+
+        if let PlayoutStrategy::Heavy { epsilon, .. } = &mut agent.playout_strategy
+            && ui
+                .add(egui::Slider::new(epsilon, 0.0..=1.0).text("epsilon"))
+                .changed()
+            && let AgentConfig::Mcts {
+                heavy_playouts_epsilon,
+                ..
+            } = config
+        {
+            *heavy_playouts_epsilon = *epsilon;
+        }
     }
 
     fn show_agent_thinking(ui: &mut egui::Ui) {
@@ -567,16 +713,41 @@ impl GameplayView {
                     max_iterations,
                     max_time_ms,
                     exploration_constant,
-                    ..
+                    use_rave,
+                    rave_k,
+                    use_heavy_playouts,
+                    heavy_playouts_epsilon,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
                 } = self.config.white_player
                 else {
                     unreachable!();
                 };
+                let heavy_options = agents::heavy_playout_metrics_options(
+                    use_heavy_playouts,
+                    heavy_playouts_epsilon,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                );
                 let metrics = MctsMetrics {
                     common: white_common,
                     max_iterations,
                     max_time_ms,
                     exploration_constant,
+                    use_rave,
+                    use_heavy_playouts,
+
+                    rave_k: if use_rave { Some(rave_k) } else { None },
+
+                    heavy_playouts_epsilon: heavy_options.epsilon,
+                    material_weight: heavy_options.material_weight,
+                    advancement_weight: heavy_options.advancement_weight,
+                    defended_weight: heavy_options.defended_weight,
+                    edge_penalty_weight: heavy_options.edge_penalty_weight,
                     total_iterations: acc.total_iterations,
                     total_nodes_created: acc.total_nodes_created,
                 };
@@ -634,16 +805,41 @@ impl GameplayView {
                     max_iterations,
                     max_time_ms,
                     exploration_constant,
-                    ..
+                    use_rave,
+                    rave_k,
+                    use_heavy_playouts,
+                    heavy_playouts_epsilon,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
                 } = self.config.black_player
                 else {
                     unreachable!();
                 };
+                let heavy_options = agents::heavy_playout_metrics_options(
+                    use_heavy_playouts,
+                    heavy_playouts_epsilon,
+                    material_weight,
+                    advancement_weight,
+                    defended_weight,
+                    edge_penalty_weight,
+                );
                 let metrics = MctsMetrics {
                     common: black_common,
                     max_iterations,
                     max_time_ms,
                     exploration_constant,
+                    use_rave,
+                    use_heavy_playouts,
+
+                    rave_k: if use_rave { Some(rave_k) } else { None },
+
+                    heavy_playouts_epsilon: heavy_options.epsilon,
+                    material_weight: heavy_options.material_weight,
+                    advancement_weight: heavy_options.advancement_weight,
+                    defended_weight: heavy_options.defended_weight,
+                    edge_penalty_weight: heavy_options.edge_penalty_weight,
                     total_iterations: acc.total_iterations,
                     total_nodes_created: acc.total_nodes_created,
                 };
