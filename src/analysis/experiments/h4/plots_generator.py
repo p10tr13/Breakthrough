@@ -5,222 +5,150 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-def load_all_data(white_filepath: Path, black_filepath: Path):
+def load_data(white_file: Path, black_file: Path):
+    """
+    Loads data from specified white and black result files.
+    """
     game_records = []
-    move_records = []
     
-    mcts_name = None
-    minimax_name = None
+    print(f"Loading data from:\n  White: {white_file}\n  Black: {black_file}")
     
-    with open(white_filepath, 'r') as fw, open(black_filepath, 'r') as fb:
-        for line_num, (line_white, line_black) in enumerate(zip(fw, fb), start=1):
-            if not line_white.strip() or not line_black.strip():
+    with open(white_file, 'r') as fw, open(black_file, 'r') as fb:
+        for lw, lb in zip(fw, fb):
+            if not lw.strip() or not lb.strip():
                 continue
-                
-            data_white = json.loads(line_white)
-            data_black = json.loads(line_black)
+            dw = json.loads(lw)
             
-            if data_white['agent_type'] == 'Minimax':
-                minimax_data, minimax_color = data_white, 'White'
-                mcts_data, mcts_color = data_black, 'Black'
-            else:
-                minimax_data, minimax_color = data_black, 'Black'
-                mcts_data, mcts_color = data_white, 'White'
-                
-            minimax_name = minimax_data['agent_type']
-            mcts_name = mcts_data['agent_type']
-            depth = minimax_data.get('max_depth')
+            height = dw.get('board_height')
+            agent_name = dw.get('agent_type', 'Mcts')
+            
+            category = agent_name
+            if dw.get('use_rave'): 
+                category = "Rave"
+            elif dw.get('use_heavy_playouts'): 
+                category = "HeavyPlayouts"
+            
+            if height is None: 
+                continue
+            
+            white_won = int(dw['agent_won'])
             
             game_records.append({
-                'minimax_depth': depth,
-                'mcts_color': mcts_color,
-                'minimax_color': minimax_color,
-                'mcts_won': int(mcts_data['agent_won']),
-                'minimax_won': int(minimax_data['agent_won']),
-                'total_moves': mcts_data['total_moves']
+                'height': height,
+                'category': category,
+                'white_won': white_won,
+                'black_won': 1 - white_won,
+                'total_moves': dw['total_moves']
             })
-            
-            for i, time_ms in enumerate(mcts_data['move_times_ms']):
-                move_records.append({
-                    'Category': mcts_name,
-                    'Agent Move Number': i + 1,
-                    'Thinking Time (ms)': time_ms,
-                    'Sort_Key': 0
-                })
                 
-            for i, time_ms in enumerate(minimax_data['move_times_ms']):
-                move_records.append({
-                    'Category': f'{minimax_name} (głębokość = {depth})',
-                    'Agent Move Number': i + 1,
-                    'Thinking Time (ms)': time_ms,
-                    'Sort_Key': depth
-                })
-                
-    df_games = pd.DataFrame(game_records)
-    df_moves = pd.DataFrame(move_records)
-    
-    return df_games, df_moves, mcts_name, minimax_name
+    return pd.DataFrame(game_records)
 
-def print_statistics(df: pd.DataFrame, mcts_name: str, minimax_name: str):
-    print(f"\n{'-'*75}")
-    print(f" TABLE 1: WIN RATE ({mcts_name} vs {minimax_name})")
-    print(f"{'-'*75}")
+def print_statistics(df: pd.DataFrame):
+    print(f"\n{'-'*95}")
+    print(" TABLE: BOARD SIZE IMPACT (Width = 8)")
+    print(f"{'-'*95}")
     
-    overall_win_stats = df.groupby('minimax_depth')['mcts_won'].mean() * 100
-    color_win_stats = df.groupby(['minimax_depth', 'mcts_color'])['mcts_won'].mean() * 100
+    stats = df.groupby(['category', 'height']).agg(
+        white_wr=('white_won', 'mean'),
+        black_wr=('black_won', 'mean'),
+        moves_mean=('total_moves', 'mean'),
+        moves_std=('total_moves', 'std')
+    ).reset_index()
     
-    col_w = f"{mcts_name} as White"
-    col_b = f"{mcts_name} as Black"
+    print(f"{'Category':<10} | {'Height':<8} | {'White Win Rate':<16} | {'Black Win Rate':<16} | {'Game Length (Mean ± SD)':<22}")
+    print("-" * 95)
     
-    print(f"{'Depth':<8} | {col_w:<20} | {col_b:<20} | {'Overall Average':<18}")
-    print("-" * 75)
-    
-    for depth in sorted(df['minimax_depth'].unique()):
-        win_white = color_win_stats.get((depth, 'White'), 0.0)
-        win_black = color_win_stats.get((depth, 'Black'), 0.0)
-        win_overall = overall_win_stats.get(depth, 0.0)
-        
-        print(f"d={depth:<6} | {win_white:>19.1f}% | {win_black:>19.1f}% | {win_overall:>17.1f}%")
+    for _, row in stats.sort_values(['category', 'height']).iterrows():
+        w_wr = f"{row['white_wr']*100:.1f}%"
+        b_wr = f"{row['black_wr']*100:.1f}%"
+        moves = f"{row['moves_mean']:.1f} ± {row['moves_std']:.1f}"
+        print(f"{row['category']:<10} | {int(row['height']):<8} | {w_wr:<16} | {b_wr:<16} | {moves:<22}")
 
-    print(f"\n{'-'*80}")
-    print(f" TABLE 2: GAME LENGTH: Mean ± SD ({mcts_name} vs {minimax_name})")
-    print(f"{'-'*80}")
-    
-    overall_moves = df.groupby('minimax_depth')['total_moves'].agg(['mean', 'std'])
-    color_moves = df.groupby(['minimax_depth', 'mcts_color'])['total_moves'].agg(['mean', 'std'])
-    
-    print(f"{'Depth':<8} | {col_w:<22} | {col_b:<22} | {'Overall Average':<20}")
-    print("-" * 80)
-    
-    def format_moves(stats_df, key):
-        try:
-            row = stats_df.loc[key]
-            std_val = row['std']
-            if pd.isna(std_val):
-                std_val = 0.0
-            return f"{row['mean']:.1f} ± {std_val:.1f}"
-        except KeyError:
-            return "N/A"
-    
-    for depth in sorted(df['minimax_depth'].unique()):
-        moves_white = format_moves(color_moves, (depth, 'White'))
-        moves_black = format_moves(color_moves, (depth, 'Black'))
-        moves_overall = format_moves(overall_moves, depth)
-        
-        print(f"d={depth:<6} | {moves_white:>22} | {moves_black:>22} | {moves_overall:>19}")
-
-def generate_move_time_plots(df_moves: pd.DataFrame, mcts_name: str, minimax_name: str):
-    if df_moves.empty:
-        print("Error: No move data found.")
+def generate_win_rate_plot(df: pd.DataFrame, output_dir: Path):
+    if df.empty:
+        print("No data to plot.")
         return
 
     sns.set_theme(style="whitegrid")
-    df_moves = df_moves.sort_values(by=['Sort_Key'])
+    categories = sorted(df['category'].unique())
+    palette = {'White': '#d62728', 'Black': '#1f77b4'}
     
-    plt.figure(figsize=(12, 7))
-    
-    depths = sorted([d for d in df_moves['Sort_Key'].unique() if d > 0])
-    minimax_colors = sns.color_palette("Reds", n_colors=len(depths) + 2).as_hex()[2:] 
-    
-    palette = {f'{mcts_name}': '#1f77b4'}
-    for depth, color in zip(depths, minimax_colors):
-        palette[f'{minimax_name} (głębokość = {depth})'] = color
-    
-    sns.lineplot(
-        data=df_moves, 
-        x='Agent Move Number', 
-        y='Thinking Time (ms)', 
-        hue='Category',
-        palette=palette, 
-        marker='o',
-        markersize=5,
-        linewidth=2,
-        errorbar=('ci', 95)
-    )
-    
-    plt.xlabel('Numer ruchu', fontsize=12)
-    plt.ylabel('Czas namysłu (ms)', fontsize=12)
-    
-    plt.xticks(sorted(df_moves['Agent Move Number'].unique()))
-    plt.legend(title='Algorytm')
-    plt.tight_layout()
-    
-    time_filename = f"{mcts_name.lower()}_thinking_time.png"
-    plt.savefig(time_filename, dpi=300)
-    plt.close()
-    
-    print(f" -> {time_filename}")
+    for cat in categories:
+        cat_df = df[df['category'] == cat]
+        
+        plt.figure(figsize=(10, 6))
+        ax = plt.gca()
+        
+        plot_data = []
+        for height in sorted(cat_df['height'].unique()):
+            h_df = cat_df[cat_df['height'] == height]
+            w_rate = h_df['white_won'].mean()
+            b_rate = 1.0 - w_rate
+            
+            plot_data.append({'height': height, 'color': 'White', 'win_rate': w_rate, 'max_win': 1.0})
+            plot_data.append({'height': height, 'color': 'Black', 'win_rate': b_rate, 'max_win': 1.0})
+        
+        pdf = pd.DataFrame(plot_data)
+        
+        sns.barplot(
+            data=pdf, x='height', y='max_win', hue='color',
+            palette=palette, dodge=True, alpha=0.3, ax=ax, legend=False,
+            hue_order=['White', 'Black']
+        )
+        sns.barplot(
+            data=pdf, x='height', y='win_rate', hue='color',
+            palette=palette, dodge=True, ax=ax,
+            hue_order=['White', 'Black']
+        )
+        
+        white_stats = pdf[pdf['color'] == 'White'].sort_values('height')
+        import numpy as np
+        z = np.polyfit(white_stats['height'], white_stats['win_rate'], 2)
+        p = np.poly1d(z)
+        x_new = np.linspace(white_stats['height'].min(), white_stats['height'].max(), 100)
+        ax.plot(x_new - white_stats['height'].min(), p(x_new), color='#d62728', linestyle='-', linewidth=2, label='Trend (White)', alpha=0.8)
 
-def generate_plots(df_games: pd.DataFrame, mcts_name: str):
-    sns.set_theme(style="whitegrid")
-
-    mcts_stats = df_games.groupby(['minimax_depth', 'mcts_color'])['mcts_won'].mean().reset_index()
-    mcts_stats.rename(columns={'mcts_won': 'win_rate'}, inplace=True)
-    
-    mcts_stats['max_win'] = 1.0
-    
-    plt.figure(figsize=(8, 6))
-    
-    sns.barplot(
-        data=mcts_stats, x='minimax_depth', y='max_win', hue='mcts_color',
-        palette={'White': '#d62728', 'Black': '#1f77b4'}, dodge=True, alpha=0.3,
-        legend=False, hue_order=['White', 'Black']
-    )
-    
-    sns.barplot(
-        data=mcts_stats, x='minimax_depth', y='win_rate', hue='mcts_color',
-        palette={'White': '#d62728', 'Black': '#1f77b4'}, dodge=True,
-        hue_order=['White', 'Black']
-    )
-    
-    plt.xlabel('Głębokość przeszukiwania drzewa gry', fontsize=12)
-    plt.ylabel('Współczynnik zwycięstw', fontsize=12)
-    plt.ylim(0, 1.05)
-    plt.legend(title=f'Kolor {mcts_name}')
-    plt.tight_layout()
-    mcts_filename = f"{mcts_name.lower()}_win_rate.png"
-    plt.savefig(mcts_filename, dpi=300)
-    plt.close()
-
-    plt.figure(figsize=(8, 6))
-    
-    sns.boxplot(
-        data=df_games, x='minimax_depth', y='total_moves', hue='mcts_color',
-        palette={'White': '#d62728', 'Black': '#1f77b4'}, dodge=True,
-        linewidth=1.5, fliersize=4, hue_order=['White', 'Black']
-    )
-    
-    plt.xlabel('Głębokość przeszukiwania drzewa gry', fontsize=12)
-    plt.ylabel('Całkowita liczba ruchów', fontsize=12)
-    plt.legend(title=f'Kolor {mcts_name}')
-    plt.tight_layout()
-    
-    moves_filename = f"{mcts_name.lower()}_total_moves.png"
-    plt.savefig(moves_filename, dpi=300)
-    plt.close()
-
-    print("Plots saved:")
-    print(f" -> {mcts_filename}")
-    print(f" -> {moves_filename}")
+        ax.set_ylabel('Współczynnik zwycięstw', fontsize=12)
+        ax.set_ylim(0, 1.05)
+        
+        ax.axhline(0.5, ls='--', color='black', alpha=0.3, label='Fair play (0.5)')
+        
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles=handles, labels=labels, title=cat, loc='upper right')
+        
+        ax.set_xlabel('Wysokość planszy', fontsize=12)
+        
+        plt.tight_layout()
+        
+        filename = f"{cat.lower()}_board_size_win_rate.png"
+        final_path = output_dir / filename
+        plt.savefig(final_path, dpi=300)
+        plt.close()
+        print(f"Plot saved to: {final_path}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate plots from game results.")
+    parser = argparse.ArgumentParser(description="Generate win rate plots for board size experiments.")
     parser.add_argument("--white", type=Path, required=True, help="Path to the white player JSONL file")
     parser.add_argument("--black", type=Path, required=True, help="Path to the black player JSONL file")
+    parser.add_argument("-o", "--output-dir", type=Path, default=Path("."), help="Output directory for the plot")
     
     args = parser.parse_args()
+    
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     
     if not args.white.exists() or not args.black.exists():
         print("Error: Input file(s) not found.")
         return
 
-    df_games, df_moves, mcts_name, minimax_name = load_all_data(args.white, args.black)
+    df = load_data(args.white, args.black)
     
-    print(f"Processed {len(df_games)} games.")
-    
-    print_statistics(df_games, mcts_name, minimax_name)
-    generate_plots(df_games, mcts_name)
-    generate_move_time_plots(df_moves, mcts_name, minimax_name)
+    if df.empty:
+        print("Error: No valid data found in the provided files.")
+        return
+        
+    print(f"Successfully loaded {len(df)} games.")
+    print_statistics(df)
+    generate_win_rate_plot(df, args.output_dir)
 
 if __name__ == "__main__":
     main()

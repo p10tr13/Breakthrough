@@ -11,6 +11,7 @@ use crate::{
         append_record_to_jsonl,
     },
     core::{Board, BoardConfig, Player, Status},
+    defaults,
     gui::themes::BoardTheme,
 };
 
@@ -224,18 +225,16 @@ impl GameplayView {
             {
                 *max_time_ms = Some(*max_time);
             }
-        } else {
-            if ui
-                .add(
-                    egui::Slider::new(&mut agent.max_iterations, 1000..=100000)
-                        .text("iters")
-                        .logarithmic(true),
-                )
-                .changed()
-                && let AgentConfig::Mcts { max_iterations, .. } = config
-            {
-                *max_iterations = agent.max_iterations;
-            }
+        } else if ui
+            .add(
+                egui::Slider::new(&mut agent.max_iterations, 1000..=100000)
+                    .text("iters")
+                    .logarithmic(true),
+            )
+            .changed()
+            && let AgentConfig::Mcts { max_iterations, .. } = config
+        {
+            *max_iterations = agent.max_iterations;
         }
 
         if ui
@@ -259,7 +258,7 @@ impl GameplayView {
                     if let AgentConfig::Mcts { rave_k, .. } = config {
                         *rave_k
                     } else {
-                        agents::DEFAULT_MCTS_RAVE_K
+                        defaults::DEFAULT_MCTS_RAVE_K
                     }
                 }
             };
@@ -313,11 +312,11 @@ impl GameplayView {
                     )
                 } else {
                     (
-                        agents::DEFAULT_MCTS_HEAVY_PLAYOUTS_EPSILON,
-                        agents::DEFAULT_HEURISTIC_MATERIAL_WEIGHT,
-                        agents::DEFAULT_HEURISTIC_ADVANCEMENT_WEIGHT,
-                        agents::DEFAULT_HEURISTIC_DEFENDED_WEIGHT,
-                        agents::DEFAULT_HEURISTIC_EDGE_PENALTY_WEIGHT,
+                        defaults::DEFAULT_MCTS_HEAVY_PLAYOUTS_EPSILON,
+                        defaults::DEFAULT_HEURISTIC_MATERIAL_WEIGHT,
+                        defaults::DEFAULT_HEURISTIC_ADVANCEMENT_WEIGHT,
+                        defaults::DEFAULT_HEURISTIC_DEFENDED_WEIGHT,
+                        defaults::DEFAULT_HEURISTIC_EDGE_PENALTY_WEIGHT,
                     )
                 };
 

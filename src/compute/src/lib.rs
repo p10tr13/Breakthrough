@@ -3,6 +3,7 @@ mod error;
 pub mod agents;
 pub mod cli;
 pub mod core;
+pub mod defaults;
 pub mod gui;
 
 pub use error::{ComputeError, ComputeResult};

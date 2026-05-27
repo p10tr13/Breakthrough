@@ -1,0 +1,758 @@
+\documentclass{article}
+%----------------------------------------------------------------------
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{blindtext}
+\usepackage{nomencl}
+\usepackage{listings}
+\usepackage{etoolbox}
+\usepackage{sudoku}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage[colorlinks=true, linkcolor=black, urlcolor=black, citecolor=black]{hyperref}
+\usepackage{subcaption}
+\usepackage{xcolor}  
+\usepackage{float}   
+\usepackage{newfloat}
+\usepackage{fancyvrb}
+\usepackage{multirow}
+
+\definecolor{consoleGreen}{RGB}{22, 198, 12}
+\definecolor{consoleRed}{RGB}{197, 15, 31}
+\definecolor{consoleYellow}{RGB}{193, 156, 0}
+\definecolor{consoleBlue}{RGB}{0, 55, 218}
+\definecolor{consoleGray}{RGB}{100, 100, 100}
+\definecolor{consolePurple}{RGB}{136, 23, 152}
+
+\newcommand{\txtGreen}[1]{\textcolor{consoleGreen}{#1}}
+\newcommand{\txtRed}[1]{\textcolor{consoleRed}{#1}}
+\newcommand{\txtYellow}[1]{\textcolor{consoleYellow}{#1}}
+\newcommand{\txtBlue}[1]{\textcolor{consoleBlue}{#1}}
+\newcommand{\txtGray}[1]{\textcolor{consoleGray}{#1}}
+\newcommand{\txtPurple}[1]{\textcolor{consolePurple}{#1}}
+
+\newfloat{code}{H}{loc}[section]
+\floatname{code}{Listing}
+
+\lstset{
+    basicstyle=\ttfamily,
+}
+%----------------------------------------------------------------------
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace{1.5cm}
+    \includegraphics[width=0.9\textwidth]{university-logo.png} \\
+    \vspace{2.5cm}
+    {\fontsize{30}{20}\selectfont \textbf{Metody Sztucznej Inteligencji 2} \par}
+    \vspace{1.5cm}
+    {\fontsize{25}{20}\selectfont Zastosowanie Monte-Carlo Tree Search do implementacji sztucznej inteligencji w grze Breakthrough\par}
+    \vspace{1.5cm}
+    {\fontsize{18}{20}\selectfont Raport końcowy\par}
+    \vspace{1.5cm}
+    {\fontsize{12}{20}\selectfont Zespół: \\ inż. Adam Grącikowski \\ inż. Piotr Iśtok \par}
+    \vspace{0.5cm}
+    {\fontsize{12}{20}\selectfont Prowadzący: \\ mgr inż. Bartłomiej Olechno \\ prof. dr hab. inż. Jacek Mańdziuk \par}
+    
+    \vfill
+    Oświadczamy, że niniejsza praca, stanowiąca podstawę do uznania osiągnięcia efektów uczenia się z przedmiotu \textit{Metody Sztucznej Inteligencji 2}, została wykonana samodzielnie. 
+
+    \vspace{1cm}
+    
+    Warszawa, \today
+    
+\end{titlepage}
+
+%----------------------------------------------------------------------
+\tableofcontents
+\newpage
+
+%----------------------------------------------------------------------
+
+\newpage
+\section{Instrukcja użytkownika}
+\label{sec:instrukcja}
+
+\subsection{Środowisko i proces budowania}
+
+Warstwa obliczeniowa oraz interfejs graficzny projektu zostały w całości zrealizowane w języku Rust~\cite{rust-install}. Do poprawnego zbudowania i uruchomienia plików wykonywalnych niezbędne jest posiadanie dedykowanych dla tego języka narzędzi (ang. \textit{Rust toolchain}). Zalecana wersja kompilatora to \texttt{1.88.0} lub nowsza.
+
+Aby zweryfikować poprawność instalacji środowiska, należy wywołać w wierszu poleceń polecenia sprawdzające wersje kompilatora \texttt{rustc}~\cite{rustc-man} oraz menedżera pakietów \texttt{Cargo}~\cite{cargo-book} (Rysinek~\ref{fig:rust-check}):
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\{\}]
+> |txtGreen{rustc} |txtGray{--version}
+rustc 1.88.0 (6b00bc388 2025-06-23)
+> |txtGreen{cargo} |txtGray{--version}
+cargo 1.88.0 (873a06493 2025-05-10)
+\end{Verbatim}
+\caption{Weryfikacja instalacji środowiska Rust.}
+\label{fig:rust-check}
+\end{figure}
+
+\noindent
+Aplikację należy budować w trybie optymalizacji kompilatora (ang. \textit{release}) korzystając z terminala w głównym katalogu projektu (Rysunek~\ref{fig:cargo-build}):
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\{\}]
+> |txtGreen{cd} src/compute && |txtGreen{cargo} build |txtGray{--release}
+\end{Verbatim}
+\caption{Budowanie aplikacji w trybie optymalizacji kompilatora.}
+\label{fig:cargo-build}
+\end{figure}
+
+Po udanej kompilacji, w katalogu \path{src/compute/target/release} wygenerowane zostaną dwa niezależne pliki wykonywalne: \texttt{breakthrough} oraz \texttt{tournament}. Każdy z programów umożliwia obsługę argumentów linii poleceń (CLI). Wbudowany system pomocy dla każdego z algorytmów można wywołać dodając flagę \texttt{-h} lub \texttt{---help} podczas uruchamiania z terminala (np. \texttt{./as ---help}).
+
+Wszystkie programy przyjmują na wejściu ścieżkę do pliku konfiguracyjnego w formacie TOML.
+
+\subsection{Opis plików wykonywalnych}
+
+W następnych podrozdziałach przedstawiono szczegółowy opis argumentów pozycyjnych, flag oraz opcjonalnych parametrów sterujących dla każdego z plików wykonywalnych.
+
+\subsubsection{Środowisko graficzne}
+
+Plik wykonywalny \texttt{breakthrough.exe} uruchamia graficzne środowisko testowe przeznaczone do pojedynczej rozgrywki pomiędzy ludźmi lub człowiekiem i agentem (jednym z zaimplementowanych algorytmów). Pozwala na zdefiniowanie wymiarów planszy, ustawienie ziarna losowości oraz zapis szczegółowych informacji z przebiegu partii osobno dla każdego z graczy (Rysunek~\ref{fig:breakthrough-run}).
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\{\}]
+> |txtGreen{breakthrough.exe} |txtGray{[OPTIONS]} |txtGray{<CONFIG>}
+\end{Verbatim}
+\caption{Podstawowe użycie graficznego środowiska testowego.}
+\label{fig:breakthrough-run}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Argumenty i opcje dla programu breakthrough.}
+    \label{tab:breakthrough-args}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Opcja / Argument} & \textbf{Opis} \\
+        \hline
+        \texttt{<CONFIG>} & Ścieżka do pliku konfiguracyjnego TOML. Pozycja opcjonalna, domyślnie przyjmuje wartość \texttt{config.toml}. \\
+        \texttt{---white-output <PATH>} & (Opcjonalne) Ścieżka do pliku wynikowego JSONL z zapisem ruchów gracza białego. Domyślnie: \texttt{white\_output.jsonl}. \\
+        \texttt{---black-output <PATH>} & (Opcjonalne) Ścieżka do pliku wynikowego JSONL z zapisem ruchów gracza czarnego. Domyślnie: \texttt{black\_output.jsonl}. \\
+        \texttt{---board-width <INT>} & (Wymagane) Szerokość planszy do gry (liczba kolumn). \\
+        \texttt{---board-height <INT>} & (Wymagane) Wysokość planszy do gry (liczba wierszy). \\
+        \texttt{---seed <INT>} & (Opcjonalne) Ziarno dla generatora liczb losowych, kluczowe dla zapewnienia pełnej powtarzalności eksperymentów. \\
+        \texttt{-h, ---help} & Wyświetla ekran pomocy z opisem wszystkich dostępnych parametrów. \\
+        \texttt{-V, ---version} & Wyświetla wersję kompilacji programu. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsubsection{Środowisko turniejowe}
+
+Plik wykonywalny \texttt{tournament.exe} pozwala na przeprowadzenie rozgrywki pomiędzy dwoma agentami (algorytmami). Interfejs wiersza poleceń zachowuje pełną spójność z graficznym środowiskiem testowym (Rysunek~\ref{fig:tournament-run}).
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\{\}]
+> |txtGreen{tournament.exe} |txtGray{[OPTIONS]} |txtGray{<CONFIG>}
+\end{Verbatim}
+\caption{Użycie modułu turniejowego.}
+\label{fig:tournament-run}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Argumenty i opcje dla programu tournament.}
+    \label{tab:tournament-args}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Opcja / Argument} & \textbf{Opis} \\
+        \hline
+        \texttt{<CONFIG>} & Ścieżka do pliku konfiguracyjnego TOML. Pozycja opcjonalna, domyślnie przyjmuje wartość \texttt{config.toml}. \\
+        \texttt{---white-output <PATH>} & (Opcjonalne) Ścieżka do pliku wynikowego JSONL dla gracza białego. Domyślnie: \texttt{white\_output.jsonl}. \\
+        \texttt{---black-output <PATH>} & (Opcjonalne) Ścieżka do pliku wynikowego JSONL dla gracza czarnego. Domyślnie: \texttt{black\_output.jsonl}. \\
+        \texttt{---board-width <INT>} & (Wymagane) Szerokość planszy turniejowej. \\
+        \texttt{---board-height <INT>} & (Wymagane) Wysokość planszy turniejowej. \\
+        \texttt{---seed <INT>} & (Opcjonalne) Ziarno generatora liczb losowych używane do deterministycznej inicjalizacji partii w ramach turnieju. \\
+        \texttt{-h, ---help} & Wyświetla ekran pomocy programu. \\
+        \texttt{-V, ---version} & Wyświetla wersję kompilacji programu. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsection{Format pliku wejściowego}
+
+Konfiguracja parametrów agentów biorących udział w rozgrywce odbywa się za pomocą pliku tekstowego w formacie TOML. W pliku tym definiuje się niezależne ustawienia dla obu stron (np. dla gracza białego i czarnego). Każdy z graczy musi mieć jawnie określony typ algorytmu sterującego (pole \texttt{type}), co determinuje listę dostępnych parametrów opcjonalnych. 
+
+W przypadku pominięcia któregokolwiek z opcjonalnych pól, środowisko przyjmie predefiniowane wartości domyślne. Przykład struktury takiego pliku przedstawiono na Rysunku~\ref{fig:config-example}.
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\{\}]
+board_width = |txtBlue{6}
+board_height = |txtBlue{7}
+seed = |txtBlue{100}
+
+|txtPurple{[white_player]}
+type = |txtYellow{"Minimax"}
+max_depth = |txtBlue{5}
+material_weight = |txtBlue{250}
+advancement_weight = |txtBlue{10}
+
+|txtPurple{[black_player]}
+type = |txtYellow{"Mcts"}
+max_iterations = |txtBlue{100000}
+exploration_constant = |txtBlue{1.41}
+use_heavy_playouts = |txtRed{true}
+\end{Verbatim}
+\caption{Przykładowy plik konfiguracyjny \texttt{config.toml}.}
+\label{fig:config-example}
+\end{figure}
+
+\noindent
+W następnych podrozdziałach opisano szczegółowo dostępne parametry dla każdego z trzech zaimplementowanych rodzajów graczy.
+
+\subsubsection{Agent Minimax}
+
+Wymaga podania parametrów sterujących przeszukiwaniem drzewa gry oraz wag poszczególnych komponentów funkcji heurystycznej oceniającej stan planszy.
+
+\begin{table}[H]
+    \centering
+    \caption{Pola konfiguracyjne dla agenta typu Minimax.}
+    \label{tab:config-minimax}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|c|X|}
+        \hline
+        \textbf{Pole} & \textbf{Domyślnie} & \textbf{Opis} \\
+        \hline
+        \texttt{max\_depth} & \texttt{4} & Maksymalna głębokość przeszukiwania drzewa gry. \\
+        \texttt{material\_weight} & \texttt{200} & Waga heurystyki odpowiadająca za przewagę materialną (liczbę bierek). \\
+        \texttt{advancement\_weight} & \texttt{5} & Waga heurystyki premiująca zaawansowanie pionów w kierunku linii docelowej przeciwnika. \\
+        \texttt{defended\_weight} & \texttt{5} & Waga heurystyki promująca bezpieczne ustawienia, w których piony wzajemnie się bronią. \\
+        \texttt{edge\_penalty\_weight} & \texttt{-2} & Waga (kara) nakładana za umieszczenie pionów na krawędziach planszy. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsubsection{Agent MCTS}
+
+Agent udostępnia on szereg zaawansowanych parametrów pozwalających na włączenie dodatkowych rozszerzeń, takich jak heurystyka RAVE czy Heavy Playouts.
+
+\begin{table}[H]
+    \centering
+    \caption{Pola konfiguracyjne dla agenta typu MCTS.}
+    \label{tab:config-mcts}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|c|X|}
+        \hline
+        \textbf{Pole} & \textbf{Domyślnie} & \textbf{Opis} \\
+        \hline
+        \texttt{max\_iterations} & \texttt{75000} & Maksymalna liczba iteracji algorytmu MCTS (liczba rozbudów drzewa). \\
+        \texttt{max\_time\_ms} & \texttt{None} & Opcjonalny, twardy limit czasu obliczeń dla jednego ruchu w milisekundach. Jeśli jest zdefiniowany, nadpisuje warunek liczby iteracji. \\
+        \texttt{exploration\_constant} & \texttt{1.41} & Stała eksploracji ($C$) w formule UCT, balansująca proces poszukiwań. \\
+        \texttt{use\_rave} & \texttt{false} & Wartość logiczna aktywująca modyfikację RAVE. \\
+        \texttt{rave\_k} & \texttt{1000.0} & Parametr $k$ sterujący wagą heurystyki RAVE w stosunku do standardowych wartości UCT. \\
+        \texttt{use\_heavy\_playouts} & \texttt{false} & Wartość logiczna włączająca ulepszone symulacje w fazie \textit{rollout}, kierowane funkcją oceny planszy. \\
+        \texttt{heavy\_playouts\_epsilon} & \texttt{0.1} & Prawdopodobieństwo wykonania ruchu losowego ($\varepsilon$) w ulepszonych symulacjach (strategia $\epsilon$-greedy). \\
+        \texttt{material\_weight} & \texttt{200} & Waga przewagi materialnej, wykorzystywana przez funkcję oceny w fazie \textit{heavy playouts}. \\
+        \texttt{advancement\_weight} & \texttt{5} & Waga zaawansowania pionów dla symulacji \textit{heavy playouts}. \\
+        \texttt{defended\_weight} & \texttt{5} & Waga bronionych pionów dla symulacji \textit{heavy playouts}. \\
+        \texttt{edge\_penalty\_weight} & \texttt{-2} & Waga (kara) za piony na krawędzi dla symulacji \textit{heavy playouts}. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsubsection{Gracz ludzki}
+
+Opcja dedykowana do manualnego testowania środowiska. Pozwala na zdefiniowanie interaktywnego gracza ludzkiego (\texttt{type = "Human"}), który wprowadza swoje ruchy poprzez interfejs graficzny GUI. Ten wariant agenta nie wymaga i nie przyjmuje żadnych dodatkowych parametrów konfiguracyjnych.
+
+\subsection{Format pliku wyjściowego}
+
+Wyniki działania środowiska testowego oraz turniejowego zapisywane są w plikach tekstowych o strukturze JSONL (JSON Lines). Każda linia w takim pliku stanowi niezależny, poprawny obiekt JSON, który agreguje statystyki i parametry z perspektywy pojedynczego gracza w rozegranej partii.
+
+Struktura generowanego logu zawiera zestaw parametrów wspólnych (rejestrowanych dla wszystkich typów graczy, w tym człowieka) oraz sekcję pól specyficznych, które zależą od użytego algorytmu. Przykładowy zrzut danych wyjściowych dla agenta wykorzystującego algorytm Minimax przedstawiono na Rysunku~\ref{fig:output-example}.
+
+\begin{figure}[H]
+\small
+\centering
+\begin{Verbatim}[commandchars=\|\(\)]
+{
+  "board_width": |txtBlue(6),
+  "board_height": |txtBlue(7),
+  "seed": |txtBlue(100),
+  "agent_type": |txtYellow("Minimax"),
+  "agent_color": |txtYellow("Black"),
+  "agent_won": |txtRed(true),
+  "pieces_remaining": |txtBlue(10),
+  "move_times_ms": [|txtBlue(32), |txtBlue(74), |txtBlue(93), ...],
+  "total_moves": |txtBlue(16),
+  "moves": [|txtYellow("a6a5"), |txtYellow("e6d5"), |txtYellow("c6d5"), ...],
+  "opponent_type": |txtYellow("Mcts"),
+  "opponent_pieces_remaining": |txtBlue(6),
+  "max_depth": |txtBlue(4),
+  "total_nodes_evaluated": |txtBlue(33229),
+  "total_cutoffs": |txtBlue(10248),
+  "material_weight": |txtBlue(200),
+  "advancement_weight": |txtBlue(5),
+  "defended_weight": |txtBlue(5),
+  "edge_penalty_weight": |txtBlue(-2)
+}
+\end{Verbatim}
+\caption{Przykładowy rekord w pliku wyjściowym dla agenta typu Minimax.}
+\label{fig:output-example}
+\end{figure}
+
+\noindent
+W Tabeli~\ref{tab:out-common} zestawiono atrybuty bazowe, które są generowane dla każdego uczestnika rozgrywki (w tym dla agenta typu \texttt{Human}).
+
+\begin{table}[H]
+    \centering
+    \caption{Wspólne pola wyjściowe logowane dla każdego gracza.}
+    \label{tab:out-common}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Pole} & \textbf{Opis} \\
+        \hline
+        \texttt{board\_width}, \texttt{board\_height} & Wymiary planszy, na której rozegrano partię. \\
+        \texttt{seed} & Ziarno losowości wykorzystane w danej grze. \\
+        \texttt{agent\_type} & Typ agenta generującego log (\texttt{Minimax}, \texttt{Mcts} lub \texttt{Human}). \\
+        \texttt{agent\_color} & Kolor przypisany agentowi w partii (\texttt{White} lub \texttt{Black}). \\
+        \texttt{agent\_won} & Flaga logiczna informująca, czy dany agent wygrał rozgrywkę. \\
+        \texttt{pieces\_remaining} & Liczba pionów gracza, które pozostały na planszy w momencie zakończenia gry. \\
+        \texttt{move\_times\_ms} & Lista zawierająca czas obliczania każdego kolejnego ruchu przez agenta (w milisekundach). \\
+        \texttt{total\_moves} & Całkowita liczba ruchów wykonana przez agenta. \\
+        \texttt{moves} & Sekwencja wszystkich wykonanych ruchów (np. \texttt{"a6a5"}). \\
+        \texttt{opponent\_type} & Typ agenta przeciwnika. \\
+        \texttt{opponent\_pieces\_remaining} & Liczba pionów przeciwnika na koniec gry. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\noindent
+W przypadku agentów zautomatyzowanych, bazowy zestaw danych jest rozszerzany o metryki charakterystyczne dla danego modułu heurystycznego. Tabela~\ref{tab:out-minimax} przedstawia logowane parametry dla algorytmu Minimax, natomiast Tabela~\ref{tab:out-mcts} dla algorytmu MCTS.
+
+\begin{table}[H]
+    \centering
+    \caption{Pola specyficzne dla agenta Minimax.}
+    \label{tab:out-minimax}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Pole} & \textbf{Opis} \\
+        \hline
+        \texttt{max\_depth} & Skonfigurowana maksymalna głębokość przeszukiwania. \\
+        \texttt{total\_nodes\_evaluated} & Łączna liczba wywołań funkcji statycznej oceny stanu gry (odwiedzonych liści) w trakcie całej partii. \\
+        \texttt{total\_cutoffs} & Łączna liczba odcięć uzyskanych w całym drzewie przeszukiwań. \\
+        \texttt{material\_weight} \dots & Zestaw wag wykorzystanych w funkcji oceny (\texttt{material}, \texttt{advancement}, \texttt{defended}, \texttt{edge\_penalty}). \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Pola specyficzne dla agenta MCTS.}
+    \label{tab:out-mcts}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Pole} & \textbf{Opis} \\
+        \hline
+        \texttt{max\_iterations} & Limit liczby iteracji algorytmu MCTS. \\
+        \texttt{max\_time\_ms} & Limit czasu obliczeń dla jednego ruchu (lub \texttt{null}, jeśli brak). \\
+        \texttt{exploration\_constant} & Wartość współczynnika eksploracji. \\
+        \texttt{use\_rave}, \texttt{rave\_k} & Informacja o wykorzystaniu heurystyki RAVE i jej parametrze $k$. \\
+        \texttt{use\_heavy\_playouts} \dots & Flaga logiczna i parametry (\texttt{epsilon} oraz wagi heurystyki) wykorzystywane do kierowania fazą symulacji (rollout). \\
+        \texttt{total\_iterations} & Zsumowana liczba wszystkich iteracji MCTS wykonanych przez agenta we wszystkich ruchach danej partii. \\
+        \texttt{total\_nodes\_created} & Sumaryczna liczba wygenerowanych w pamięci węzłów drzewa MCTS podczas gry. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsection{Interfejs graficzny}
+
+Aplikacja została wyposażona w prosty, czytelny interfejs graficzny (GUI), umożliwiający rozgrywkę człowieka z agentem. Zestawienie poszczególnych widoków aplikacji przedstawiono na Rysunku~\ref{fig:gui-overview}.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/main_menu.png}
+        \caption{Ekran startowy.}
+        \label{fig:gui-main}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/human_turn.png}
+        \caption{Oczekiwanie na ruch gracza.}
+        \label{fig:gui-human}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/player_won.png}
+        \caption{Ekran końcowy z ogłoszeniem zwycięzcy.}
+        \label{fig:gui-won}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mcts_turn.png}
+        \caption{Oczekiwanie na ruch agenta.}
+        \label{fig:gui-mcts}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/minimax_turn.png}
+        \caption{Gra z agentem Minimax.}
+        \label{fig:gui-minimax}
+    \end{subfigure}
+
+    \caption{Zrzuty ekranu interfejsu graficznego dla gry Breakthrough.}
+    \label{fig:gui-overview}
+\end{figure}
+
+\newpage
+\section{Weryfikacja hipotez badawczych}
+
+\subsection{Hipoteza 1: Wpływ algorytmu RAVE}
+
+\subsection{Hipoteza 2: Wpływ algorytmu Heavy Playouts}
+
+\newpage
+\subsection{Hipoteza 3: Przewaga nad ewaluacją statyczną}
+
+\subsubsection{Metodologia i przebieg eksperymentu}
+
+Weryfikacja hipotezy wymagała przeprowadzenia serii rozgrywek turniejowych, w których zautomatyzowani agenci bazujący na algorytmie MCTS zostali skonfrontowani z agentem heurystycznym, wykorzystującym algorytm Minimax ze statyczną funkcją oceny pozycji. Celem eksperymentu było zbadanie, czy probabilistyczne podejście do przeszukiwania przestrzeni stanów pozwala na uzyskanie przewagi nad deterministycznym oponentem o ograniczonym horyzoncie planowania.
+
+Eksperyment podzielono na trzy główne serie pomiarowe, odpowiadające testowanym wariantom algorytmu sterującego: MCTS, MCTS + RAVE oraz MCTS + Heavy Playouts. W każdej z serii agent testowy (korzystający ze stałego budżetu iteracyjnego 10000) rozgrywał partie przeciwko agentowi Minimax. Siła oponenta była stopniowo zwiększana poprzez inkrementację limitu maksymalnej głębokości przeszukiwania drzewa gry (parametr $d$) w przedziale od $d=1$ do $d=7$. Pozwoliło to na weryfikację zachowania wariantów stochastycznych w starciu z przeciwnikiem o rosnących zdolnościach taktycznych.
+
+Dla każdej testowanej głębokości oponenta rozegrano 20 niezależnych partii. Aby zneutralizować wpływ przewagi pierwszego ruchu, zrezygnowano z przypisywania stałych ról –- w 10 partiach agent kontrolował piony białe, a w pozostałych 10 piony czarne. Tym samym każda z trzech serii pomiarowych składała się ze 140 partii, co przełożyło się na 420 rozegranych gier w całym eksperymencie.
+
+Zgodnie z przyjętymi założeniami, główną metryką decydującą o weryfikacji hipotezy H3 był sumaryczny odsetek wygranych partii (wymagany próg powyżej 70\%). Dodatkowo, w celu pogłębienia analizy, z zebranych logów wyodrębniono informacje na temat średniej długości trwania rozgrywki (liczby ruchów) oraz czasów namysłu poszczególnych algorytmów.
+
+\subsubsection{Analiza wyników}
+
+Zestawienie odsetka wygranych partii dla wszystkich trzech wariantów algorytmu MCTS (MCTS, MCTS + RAVE oraz MCTS + Heavy Playouts) w zależności od głębokości przeszukiwania agenta Minimax przedstawiono na Rysunku~\ref{fig:comparison-winrate} oraz w Tabeli \ref{tab:comparison-win-rate}. \\
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mcts_win_rate.png}
+        \caption{Klasyczny MCTS}
+        \label{fig:winrate-mcts}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/rave_win_rate.png}
+        \caption{MCTS + RAVE}
+        \label{fig:winrate-rave}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/heavyplayouts_win_rate.png}
+        \caption{MCTS + Heavy Playouts}
+        \label{fig:winrate-heavy}
+    \end{subfigure}
+
+    \caption{Porównanie odsetka wygranych partii w zależności od głębokości przeszukiwania agenta Minimax dla różnych wariantów algorytmu MCTS.}
+    \label{fig:comparison-winrate}
+\end{figure}
+
+\noindent
+Bezpośrednie porównanie tych wykresów pozwala na sformułowanie kilku obserwacji dotyczących stabilności i siły gry poszczególnych modyfikacji:
+
+\begin{enumerate}
+    \item Niezależnie od zastosowanego wariantu MCTS, można zaobserwować wyraźny trend spadku skuteczności w początkowej fazie wykresu. Dla najmniejszej głębokości ($d=1$), wszystkie modyfikacje oparte na symulacjach całkowicie dominują agenta Minimax, osiągając wskaźniki zwycięstw bliskie lub równe 100\% ($\geq 70\%)$. Jednakże, wraz ze wzrostem limitu głębokości do $d=3$ i $d=4$, siła gry Minimaxa znacząco rośnie, co przekłada się na gwałtowny spadek skuteczności agentów probabilistycznych. W tym przedziale klasyczny MCTS oraz MCTS z modyfikacją RAVE przegrywają niemal wszystkie partie, co obnaża podatność losowych oraz pół-losowych symulacji na szerszy horyzont planowania agenta Minimax
+    \item Szczególnie interesujące jest zachowanie algorytmów dla dużych głębokości przeszukiwania oponenta ($d \geq 5$). Na wykresach zauważalne jest swoiste odwrócenie trendu –- skuteczność wariantów MCTS ponownie zaczyna rosnąć, a dla $d=7$ agent Minimax zaczyna regularnie przegrywać z ulepszonymi wariantami (Heavy Playouts i RAVE osiągają lepsze wyniki w tym rejonie w porównaniu do klasycznego MCTS, choć i on odnotowuje wzrost do poziomu około 50\%). Przy bardzo dużych głębokościach (np. $d=7$), agent Minimax staje się ofiarą własnego determinizmu -- ,,ślepo'' ufa zaprogramowanym wagom heurystycznym. Warianty MCTS, dzięki pełnym symulacjom do końca partii, potrafią elastyczniej identyfikować rzeczywiste szanse na wygraną.
+    \item Spośród testowanych modyfikacji, wariant MCTS + Heavy Playouts (Rysunek~\ref{fig:winrate-heavy}) wykazał się największą odpornością na siłę taktyczną Minimaxa w środkowym przedziale głębokości ($d=3$, $d=4$).
+    \item RAVE (Rysunek~\ref{fig:winrate-rave}) zachowywało się w sposób zbliżony do klasycznego MCTS.
+\end{enumerate}
+
+\begin{table}[H]
+    \centering
+    \caption{Odsetek wygranych partii przez różne warianty algorytmu MCTS w starciu z algorytmami Minimax o zmiennej głębokości przeszukiwania ($d$).}
+    \label{tab:comparison-win-rate}
+    \renewcommand{\arraystretch}{1.2}
+
+    \begin{tabular}{|c|c|p{1.6cm}|p{3cm}|}
+        \hline
+        \textbf{Głębokość} & \textbf{MCTS} & \textbf{MCTS + RAVE} & \textbf{MCTS + Heavy Playouts} \\
+        \hline
+        1 & \hfill 95.0\% & \hfill 70.0\% & \hfill 100.0\% \\
+        2 & \hfill 25.0\% & \hfill 15.0\% & \hfill 60.0\% \\
+        3 & \hfill 0.0\% & \hfill 10.0\% & \hfill 40.0\% \\
+        4 & \hfill 0.0\% & \hfill 0.0\% & \hfill 40.0\% \\
+        5 & \hfill 15.0\% & \hfill 15.0\% & \hfill 60.0\% \\
+        6 & \hfill 5.0\% & \hfill 0.0\% & \hfill 50.0\% \\
+        7 & \hfill 50.0\% & \hfill 50.0\% & \hfill 60.0\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mcts_total_moves.png}
+        \caption{Klasyczny MCTS}
+        \label{fig:moves-mcts}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/rave_total_moves.png}
+        \caption{MCTS + RAVE}
+        \label{fig:moves-rave}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/heavyplayouts_total_moves.png}
+        \caption{MCTS + Heavy Playouts}
+        \label{fig:moves-heavy}
+    \end{subfigure}
+
+    \caption{Zestawienie dystrybucji całkowitej liczby ruchów rozegranych w partiach przeciwko agentowi Minimax dla różnych wariantów algorytmu MCTS.}
+    \label{fig:comparison-moves}
+\end{figure}
+
+\noindent
+Kolejnym elementem poddanym analizie była średnia długość rozegranych partii, wyrażona jako całkowita liczba ruchów wykonana przez obu graczy przed osiągnięciem stanu końcowego (Rysunek~\ref{fig:comparison-moves}, Tabela \ref{tab:comparison-game-length}). Wykresy uwzględniają odrębne ,,pudełka'' dla sytuacji, w której agent MCTS steruje bierkami białymi oraz czarnymi.
+
+\begin{table}[H]
+    \centering
+    \caption{Średnia długość partii (wyrażona jako całkowita liczba ruchów obu graczy) wraz z odchyleniem standardowym, w starciach wariantów MCTS z algorytmem Minimax.}
+    \label{tab:comparison-game-length}
+    \renewcommand{\arraystretch}{1.2}
+
+    \begin{tabular}{|c|c|p{1.6cm}|p{3cm}|}
+        \hline
+        \textbf{Głębokość} & \textbf{MCTS} & \textbf{MCTS + RAVE} & \textbf{MCTS + Heavy Playouts} \\
+        \hline
+        1 & \hfill 21.1 $\pm$ 4.3 & \hfill 21.5 $\pm$ 5.5 & \hfill 23.4 $\pm$ 3.5 \\
+        2 & \hfill 17.0 $\pm$ 3.2 & \hfill 15.8 $\pm$ 2.6 & \hfill 19.1 $\pm$ 3.9 \\
+        3 & \hfill 19.6 $\pm$ 4.7 & \hfill 18.6 $\pm$ 4.5 & \hfill 21.8 $\pm$ 3.4 \\
+        4 & \hfill 16.9 $\pm$ 2.9 & \hfill 16.1 $\pm$ 4.1 & \hfill 21.8 $\pm$ 3.3 \\
+        5 & \hfill 17.4 $\pm$ 3.5 & \hfill 17.4 $\pm$ 3.9 & \hfill 22.1 $\pm$ 4.2 \\
+        6 & \hfill 17.9 $\pm$ 3.1 & \hfill 16.3 $\pm$ 3.9 & \hfill 21.0 $\pm$ 3.8 \\
+        7 & \hfill 17.1 $\pm$ 4.7 & \hfill 15.8 $\pm$ 4.9 & \hfill 20.2 $\pm$ 4.4 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mcts_thinking_time.png}
+        \caption{Klasyczny MCTS}
+        \label{fig:time-mcts}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/rave_thinking_time.png}
+        \caption{MCTS + RAVE}
+        \label{fig:time-rave}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/heavyplayouts_thinking_time.png}
+        \caption{MCTS + Heavy Playouts}
+        \label{fig:time-heavy}
+    \end{subfigure}
+
+    \caption{Średni czas namysłu (w milisekundach) dla różnych wariantów algorytmu MCTS oraz ich przeciwników (agenta Minimax o rosnącej głębokości przeszukiwania).}
+    \label{fig:comparison-time}
+\end{figure}
+
+\noindent
+Ostatnim, w ramach tego eksperymentu, badanym elementem była analiza średniego czasu namysłu wymaganego do wygenerowania pojedynczego ruchu. Profile wydajnościowe, zestawione na układzie wykresów (Rysunek~\ref{fig:comparison-time}), obrazują różnice w naturze obu podejść do przeszukiwania przestrzeni stanów.
+
+Przewidywalną obserwacją, jest wykładniczy wzrost czasu namysłu algorytmu Minimax wraz ze wzrostem limitu głębokości przeszukiwania ($d$). Dla płytkich wartości ($d \le 4$), decyzje podejmowane są niemal natychmiastowo, jednakże przekroczenie progu $d=5$ powoduje drastyczne wzrost wielkości drzewa gry (wynikające z wysokiego współczynnika rozgałęzienia w gry). Dla maksymalnej testowanej głębokości ($d=7$), pojedynczy ruch oponenta statycznego zajmuje znacząco więcej czasu niż iteracyjne rozwijanie drzewa przez warianty MCTS oraz MCTS + RAVE, co pokazuje ograniczenia skalowalności naiwnego (bądź wyposażonego jedynie w cięcia alfa-beta) przeglądu zupełnego.
+
+Ciekawszym zjawiskiem jest zachowanie czasu namysłu dla algorytmów opartych na MCTS. Mimo iż operowały one na stałym, odgórnie narzuconym limicie całkowitej liczby iteracji w każdym ruchu (niezależnie od przeciwnika), czas potrzebny na realizację tego budżetu skraca się (w przybliżeniu liniowo) wraz z rozwojem gry. Losowe lub pół-losowe rozgrywki algorytmów MCTS trwają coraz krócej ponieważ pozostało niewiele ruchów do zakończenia rozgrywki.
+
+Analizując warianty MCTS między sobą, można zauważyć, że zastosowanie heurystyki RAVE nie wprowadziło znaczącego narzutu obliczeniowego, natomiast wielokrotne wywoływanie funkcji oceny pozycji w wariancie Heavy Playouts, dosyć znacząco wydłuża czas namysłu algorytmu, którego średni czas namysłu do 11 ruchu przekracza 200 ms (przy stałym limicie 10000 iteracji).
+
+\subsubsection{Wnioski końcowe}
+
+Analiza zebranych danych pozwala stwierdzić, że dla najbardziej podstawowego wariantu płytkiego przeszukiwania, czyli dla głębokości $d=1$, wszystkie testowane modyfikacje algorytmu stochastycznego z sukcesem osiągnęły lub przekroczyły wymagany próg skuteczności. Klasyczny wariant MCTS uzyskał wynik 95.0\%, MCTS z heurystyką RAVE osiągnął barierę 70.0\%, natomiast wariant kierowany (Heavy Playouts) zdominował przeciwnika całkowicie, wygrywając 100.0\% rozegranych partii.
+
+\textbf{Hipoteza H3 zostaje przyjęta}. Należy jednak zaznaczyć, że założony próg 70\% wygranych jest spełniony wyłącznie dla głębokości równej 1. Zwiększenie horyzontu planowania agenta Minimax zaledwie o jeden lub dwa półruchy ($d \ge 2$) powodowało gwałtowne załamanie skuteczności metod opartych o algorytm MCTS.
+
+\newpage
+\subsection{Hipoteza 4: Wpływ rozmiaru planszy na asymetrię szans}
+
+\subsubsection{Metodologia i przebieg eksperymentu}
+
+Weryfikacja czwartej hipotezy badawczej (H4) koncentrowała się na ocenie wpływu geometrii planszy na asymetrię szans w grze. Ze względu na specyfikę mechaniki Breakthrough, w której celem jest dotarcie do linii końcowej przeciwnika, gracz wykonujący pierwszy ruch (białe) dysponuje naturalną przewagą tempa. Hipoteza zakładała, że wraz ze wzrostem wymiarów planszy przewaga koloru białego ulegnie marginalizacji na rzecz strategii. Zgodnie z hipotezą, zmodyfikowane algorytmy MCTS będą w stanie odnosić relatywnie częstsze zwycięstwa z pozycji czarnych na większych planszach.
+
+Rozgrywki przeprowadzono dla asymetrycznych wymiarów planszy. Szerokość ustalono jako stałą wartość $W = 8$, natomiast wysokość ($H$) stanowiła zmienną niezależną przyjmującą wartości z rosnącego zbioru: $H \in \{5, 6, 7, 8, 9, 10, 11\}$. 
+
+Eksperyment podzielono na trzy symetryczne serie pomiarowe, w których po obu stronach planszy stawali identyczni agenci:
+\begin{enumerate}
+    \item \textbf{Seria 1:} Klasyczny algorytm MCTS (UCT) grający przeciwko sobie.
+    \item \textbf{Seria 2:} Wariant MCTS + RAVE.
+    \item \textbf{Seria 3:} Wariant MCTS + Heavy Playouts.
+\end{enumerate}
+
+\noindent
+Aby zapewnić agentom budżet adekwatny do rozmiaru gry, maksymalna liczba iteracji zmieniała się liniowo w zależności od wysokości planszy zgodnie ze wzorem:
+
+$$I = 2000 \cdot H$$
+
+\noindent
+Tym samym dla planszy $8 \times 5$ limit wynosił 10000 iteracji, a dla $8 \times 11$ już 22000. \\
+
+\noindent
+Dla każdego z testowanych wymiarów planszy i dla każdej z trzech serii rozegrano dokładnie 50 partii turniejowych. Ponieważ w każdej serii agenci reprezentowali identyczną siłę gry, zrezygnowano z rotacji kolorów na rzecz jednorodnego monitorowania współczynnika zwycięstw z perspektywy białego gracza.
+
+\subsubsection{Analiza wyników}
+
+Zgromadzone dane pozwoliły na prześledzenie zachowania wskaźnika zwycięstw dla gracza rozpoczynającego (Białe) w zależności od wysokości planszy $H$. Zestawienie wyników dla wszystkich trzech symetrycznych par algorytmów (Klasyczny MCTS, MCTS + RAVE, MCTS + Heavy Playouts) przedstawiono w formie wykresów na Rysunku~\ref{fig:h4-winrate-comparison}. Szczegółowe dane liczbowe zostały zgromadzone w Tabeli~\ref{tab:h4-summary}.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mcts_board_size_win_rate.png}
+        \caption{Klasyczny MCTS}
+        \label{fig:h4-mcts}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/rave_board_size_win_rate.png}
+        \caption{MCTS + RAVE}
+        \label{fig:h4-rave}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/heavyplayouts_board_size_win_rate.png}
+        \caption{MCTS + Heavy Playouts}
+        \label{fig:h4-heavy}
+    \end{subfigure}
+
+    \caption{Odsetek zwycięstw gracza rozpoczynającego (Białe) w starciach symetrycznych w zależności od wysokości planszy ($H$) przy stałej szerokości $W=8$.}
+    \label{fig:h4-winrate-comparison}
+\end{figure}
+
+\noindent
+Wstępna analiza wyników wskazuje na dużą zmienność (wariancję) wskaźnika wygranych w poszczególnych wariantach na szerokim przedziale wysokości planszy. W celu ułatwienia interpretacji tych odchyleń, na wykresach naniesiono linię trendu obrazującą ogólną tendencję zmian skuteczności (modelowaną przez wielomian stopnia 2), a także poziomą linię wyznaczającą próg 50\% (tzw. linię \textit{fair play}), która reprezentuje stan idealnej równowagi szans między stroną rozpoczynającą a broniącą.
+
+Analiza zgromadzonych danych pozwala na pozytywne zweryfikowanie postawionych warunków. Rozpatrując kluczowy przedział wysokości od $H=7$ do $H=9$, zaobserwowano spadek odsetka wygranych Białego. Dla klasycznego MCTS skuteczność Białych spadła z poziomu 54.0\% ($H=7$) do 42.0\% ($H=8$) oraz 44.0\% ($H=9$), co oznacza utratę inicjatywy startowej i przejście inicjatywy (choć z niewielką przewagą) na stronę Czarnych.
+
+Wprowadzenie wiedzy domenowej poprzez modyfikację Heavy Playouts ujawniło wyraźny trend malejący: od dominacji Białych wynoszącej 80.0\% na planszy $8 \times 7$, poprzez spadek do 40.0\% na planszy $8 \times 8$, aż do zaledwie 20.0\% na planszy $8 \times 9$.
+
+Należy zaznaczyć, że trend ten nie zachowuje idealnej liniowości w nieskończoność (co pokazują anomalie dla dużej planszy $H=11$), a wariant RAVE charakteryzował się większą zachowawczością wyników wokół linii remisu (50\%). Nie zmienia to jednak faktu, że w zakładanym w kryteriach przedziale badawczym (odpowiednik plansz średnich i dużych) zjawisko marginalizacji przewagi Białych jest zauważalne.
+
+\begin{table}[H]
+    \centering
+    \caption{Zestawienie skuteczności i średniej długości partii dla wariantów MCTS w zależności od wysokości planszy.}
+    \label{tab:h4-summary}
+    \renewcommand{\arraystretch}{1.2}
+
+    \begin{tabular}{|p{1.5cm}|p{1.8cm}|p{2.7cm}|p{2.1cm}|}
+        \hline
+        \textbf{Wariant} & \textbf{Wysokość planszy} & \textbf{Współczynnik zwycięstw (Białe/Czarne)} & \textbf{Średnia długość partii} \\
+        \hline
+
+        \multirow{7}{1.5cm}{Klasyczny MCTS}
+            & \hfill 5  & \hfill 50/50\% & \hfill 15.8 $\pm$ 3.5 \\
+            & \hfill 6  & \hfill 52/48\% & \hfill 20.4 $\pm$ 4.1 \\
+            & \hfill 7  & \hfill 54/46\% & \hfill 25.4 $\pm$ 6.2 \\
+            & \hfill 8  & \hfill 42/58\% & \hfill 29.1 $\pm$ 7.7 \\
+            & \hfill 9  & \hfill 44/56\% & \hfill 31.3 $\pm$ 7.2 \\
+            & \hfill 10 & \hfill 56/44\% & \hfill 39.2 $\pm$ 8.4 \\
+            & \hfill 11 & \hfill 56/44\% & \hfill 38.5 $\pm$ 10.7 \\
+        \hline
+        
+        \multirow{7}{1.5cm}{MCTS + Heavy Playouts}
+            & \hfill 5  & \hfill 50/50\% & \hfill 16.3 $\pm$ 1.7 \\
+            & \hfill 6  & \hfill 70/30\% & \hfill 19.8 $\pm$ 4.7 \\
+            & \hfill 7  & \hfill 80/20\% & \hfill 27.5 $\pm$ 2.6 \\
+            & \hfill 8  & \hfill 40/60\% & \hfill 34.9 $\pm$ 5.1 \\
+            & \hfill 9  & \hfill 20/80\% & \hfill 40.7 $\pm$ 4.0 \\
+            & \hfill 10 & \hfill 30/70\% & \hfill 52.7 $\pm$ 6.4 \\
+            & \hfill 11 & \hfill 80/20\% & \hfill 56.5 $\pm$ 3.8 \\
+        \hline
+
+
+        \multirow{7}{1.5cm}{MCTS + RAVE}
+            & \hfill 5  & \hfill 36/64\% & \hfill 15.2 $\pm$ 3.2 \\
+            & \hfill 6  & \hfill 52/48\% & \hfill 18.4 $\pm$ 4.1 \\
+            & \hfill 7  & \hfill 44/56\% & \hfill 19.7 $\pm$ 4.3 \\
+            & \hfill 8  & \hfill 50/50\% & \hfill 23.0 $\pm$ 5.2 \\
+            & \hfill 9  & \hfill 48/52\% & \hfill 25.6 $\pm$ 5.9 \\
+            & \hfill 10 & \hfill 38/62\% & \hfill 28.6 $\pm$ 7.0 \\
+            & \hfill 11 & \hfill 50/50\% & \hfill 30.9 $\pm$ 8.5 \\
+        \hline
+
+    \end{tabular}
+\end{table}
+
+\subsubsection{Wnioski końcowe}
+
+\textbf{Hipoteza 4 zostaje przyjęta}. Rozmiar planszy w grze Breakthrough w istotne znaczenie na balans rozgrywki, a na rozszerzonych planszach przemyślana strategia (reprezentowana przez ukierunkowane symulacje) pozwala na statystycznie istotne przejęcie kontroli nad partią przez gracza broniącego (Czarne).
+
+\newpage
+\section{Testy z udziałem ludzi}
+
+\newpage
+\section{Podsumowanie}
+
+%----------------------------------------------------------------------
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{rust-install}
+\emph{The Rust Programming Language -- Installation}, \url{https://doc.rust-lang.org/book/ch01-01-installation.html\#installation} (dostęp 28.01.2026r.).
+
+\bibitem{rustc-man}
+\emph{What is rustc?}, \url{https://doc.rust-lang.org/stable/rustc/index.html\#what-is-rustc} (dostęp 28.01.2026r.).
+
+\bibitem{cargo-book}
+\emph{The Cargo Book -- Installation}, \url{https://cargo-book.irust.net/en-us/getting-started/installation.html} (dostęp 28.01.2026r.)
+
+\end{thebibliography}
+
+\end{document}

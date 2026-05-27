@@ -3,6 +3,7 @@ mod metrics;
 mod minimax;
 mod stats;
 
+use crate::core::{Board, BoardConfig, Ply};
 pub use mcts::{MctsAgent, MctsStats, MctsStatsAccumulator, PlayoutStrategy, SelectionStrategy};
 pub use metrics::*;
 pub use minimax::{
@@ -10,61 +11,9 @@ pub use minimax::{
 };
 pub use stats::{AgentRuntimeStats, AgentStatsAccumulator};
 
+use super::defaults::*;
+
 use serde::{Deserialize, Serialize};
-
-use crate::core::{Board, BoardConfig, Ply};
-
-pub const DEFAULT_MINIMAX_MAX_DEPTH: u8 = 4;
-pub const DEFAULT_HEURISTIC_MATERIAL_WEIGHT: i32 = 200;
-pub const DEFAULT_HEURISTIC_ADVANCEMENT_WEIGHT: i32 = 5;
-pub const DEFAULT_HEURISTIC_DEFENDED_WEIGHT: i32 = 5;
-pub const DEFAULT_HEURISTIC_EDGE_PENALTY_WEIGHT: i32 = -2;
-pub const DEFAULT_MCTS_MAX_ITERATIONS: u32 = 75000;
-pub const DEFAULT_MCTS_MAX_TIME_MS: Option<u64> = None;
-pub const DEFAULT_MCTS_EXPLORATION_CONSTANT: f64 = 1.41;
-pub const DEFAULT_MCTS_USE_HEAVY_PLAYOUTS: bool = false;
-pub const DEFAULT_MCTS_HEAVY_PLAYOUTS_EPSILON: f64 = 0.1;
-pub const DEFAULT_MCTS_USE_RAVE: bool = false;
-pub const DEFAULT_MCTS_RAVE_K: f64 = 1000.0;
-
-fn default_max_depth() -> u8 {
-    DEFAULT_MINIMAX_MAX_DEPTH
-}
-
-fn default_material() -> i32 {
-    DEFAULT_HEURISTIC_MATERIAL_WEIGHT
-}
-fn default_advancement() -> i32 {
-    DEFAULT_HEURISTIC_ADVANCEMENT_WEIGHT
-}
-fn default_defended() -> i32 {
-    DEFAULT_HEURISTIC_DEFENDED_WEIGHT
-}
-fn default_edge_penalty() -> i32 {
-    DEFAULT_HEURISTIC_EDGE_PENALTY_WEIGHT
-}
-
-fn default_max_iterations() -> u32 {
-    DEFAULT_MCTS_MAX_ITERATIONS
-}
-fn default_max_time_ms() -> Option<u64> {
-    DEFAULT_MCTS_MAX_TIME_MS
-}
-fn default_exploration_constant() -> f64 {
-    DEFAULT_MCTS_EXPLORATION_CONSTANT
-}
-fn default_use_heavy_playouts() -> bool {
-    DEFAULT_MCTS_USE_HEAVY_PLAYOUTS
-}
-fn default_heavy_playouts_epsilon() -> f64 {
-    DEFAULT_MCTS_HEAVY_PLAYOUTS_EPSILON
-}
-fn default_use_rave() -> bool {
-    DEFAULT_MCTS_USE_RAVE
-}
-fn default_rave_k() -> f64 {
-    DEFAULT_MCTS_RAVE_K
-}
 
 pub fn build_mcts_selection_strategy(use_rave: bool, rave_k: f64) -> SelectionStrategy {
     if use_rave {
