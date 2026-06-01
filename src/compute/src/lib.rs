@@ -19,4 +19,6 @@ pub struct BreakthroughConfig {
     pub white_player: AgentConfig,
     pub black_player: AgentConfig,
     pub seed: Option<u64>,
+    #[serde(default)]
+    pub study_mode: bool,
 }

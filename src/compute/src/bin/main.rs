@@ -149,6 +149,9 @@ fn handle_state(egui_ctx: &egui::Context, state: &mut AppState) {
                             black_output: black_output.clone(),
                         });
                     }
+                    GameplayAction::Exit => {
+                        std::process::exit(0);
+                    }
                 }
             }
         }

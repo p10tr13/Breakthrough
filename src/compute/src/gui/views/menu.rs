@@ -72,25 +72,29 @@ impl<'a> MenuView<'a> {
                         .strong(),
                 );
 
-                ui.collapsing(
-                    format!("{} White Player Details", egui_phosphor::fill::USER),
-                    |ui| {
-                        ui.label(egui::RichText::new(format!(
-                            "{:#?}",
-                            self.config.white_player
-                        )));
-                    },
-                );
+                if self.config.study_mode {
+                    ui.label("Study mode is enabled. Player details are hidden.");
+                } else {
+                    ui.collapsing(
+                        format!("{} White Player Details", egui_phosphor::fill::USER),
+                        |ui| {
+                            ui.label(egui::RichText::new(format!(
+                                "{:#?}",
+                                self.config.white_player
+                            )));
+                        },
+                    );
 
-                ui.collapsing(
-                    format!("{} Black Player Details", egui_phosphor::fill::USER),
-                    |ui| {
-                        ui.label(egui::RichText::new(format!(
-                            "{:#?}",
-                            self.config.black_player
-                        )));
-                    },
-                );
+                    ui.collapsing(
+                        format!("{} Black Player Details", egui_phosphor::fill::USER),
+                        |ui| {
+                            ui.label(egui::RichText::new(format!(
+                                "{:#?}",
+                                self.config.black_player
+                            )));
+                        },
+                    );
+                }
 
                 ui.add_space(5.0);
             });

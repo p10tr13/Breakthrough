@@ -99,7 +99,12 @@ impl GameplayView {
             .exact_width(250.0)
             .show(ctx, |ui| {
                 ui.add_space(10.0);
-                ui.heading(egui::RichText::new("Player Parameters").strong());
+                let panel_title = if self.config.study_mode {
+                    "Study Mode"
+                } else {
+                    "Player Parameters"
+                };
+                ui.heading(egui::RichText::new(panel_title).strong());
                 ui.separator();
 
                 ui.add_space(10.0);
@@ -121,52 +126,65 @@ impl GameplayView {
                         (Player::Black.to_string(), Player::White.to_string())
                     };
 
-                    ui.label(
-                        egui::RichText::new(format!("{current_player_label}'s Turn (Human)"))
-                            .strong()
-                            .color(egui::Color32::LIGHT_GREEN),
-                    );
-                    ui.label("Awaiting your move...");
-                    ui.add_space(15.0);
+                    if self.config.study_mode {
+                        ui.label(
+                            egui::RichText::new("Your turn")
+                                .strong()
+                                .color(egui::Color32::LIGHT_GREEN),
+                        );
+                        ui.label("Select and move one of your pieces.");
+                    } else {
+                        ui.label(
+                            egui::RichText::new(format!("{current_player_label}'s Turn (Human)"))
+                                .strong()
+                                .color(egui::Color32::LIGHT_GREEN),
+                        );
+                        ui.label("Awaiting your move...");
+                        ui.add_space(15.0);
 
-                    match opponent_agent {
-                        BreakthroughAgent::Minimax(minimax) => {
-                            Self::show_minimax_settings(ui, minimax, &opponent_player_label);
-                        }
-                        BreakthroughAgent::Mcts(mcts) => {
-                            Self::show_mcts_settings(
-                                ui,
-                                mcts,
-                                opponent_config,
-                                &opponent_player_label,
-                            );
-                        }
-                        BreakthroughAgent::Human => {
-                            ui.label(format!("Opponent ({opponent_player_label}) is also Human.",));
+                        match opponent_agent {
+                            BreakthroughAgent::Minimax(minimax) => {
+                                Self::show_minimax_settings(ui, minimax, &opponent_player_label);
+                            }
+                            BreakthroughAgent::Mcts(mcts) => {
+                                Self::show_mcts_settings(
+                                    ui,
+                                    mcts,
+                                    opponent_config,
+                                    &opponent_player_label,
+                                );
+                            }
+                            BreakthroughAgent::Human => {
+                                ui.label(format!(
+                                    "Opponent ({opponent_player_label}) is also Human.",
+                                ));
+                            }
                         }
                     }
                 } else {
                     Self::show_agent_thinking(ui);
                 }
 
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                    ui.add_space(20.0);
-                    if ui
-                        .add_sized(
-                            [200.0, 40.0],
-                            egui::Button::new(
-                                egui::RichText::new(format!(
-                                    "{} Back to Menu",
-                                    egui_phosphor::fill::HOUSE
-                                ))
-                                .strong(),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        action = Some(GameplayAction::BackToMenu);
-                    }
-                });
+                if !self.config.study_mode {
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                        ui.add_space(20.0);
+                        if ui
+                            .add_sized(
+                                [200.0, 40.0],
+                                egui::Button::new(
+                                    egui::RichText::new(format!(
+                                        "{} Back to Menu",
+                                        egui_phosphor::fill::HOUSE
+                                    ))
+                                    .strong(),
+                                ),
+                            )
+                            .clicked()
+                        {
+                            action = Some(GameplayAction::BackToMenu);
+                        }
+                    });
+                }
             });
 
         egui::CentralPanel::default()
@@ -443,23 +461,36 @@ impl GameplayView {
                         .add_sized(
                             [200.0, 40.0],
                             egui::Button::new(
-                                egui::RichText::new(format!(
-                                    "{} Back to Menu",
-                                    egui_phosphor::fill::HOUSE
-                                ))
-                                .size(18.0)
-                                .strong(),
+                                egui::RichText::new(self.game_over_button_text())
+                                    .size(18.0)
+                                    .strong(),
                             ),
                         )
                         .clicked()
                     {
-                        action = Some(GameplayAction::BackToMenu);
+                        action = Some(self.game_over_action());
                     }
                     ui.add_space(10.0);
                 });
             });
 
         action
+    }
+
+    fn game_over_button_text(&self) -> String {
+        if self.config.study_mode {
+            format!("{} Exit", egui_phosphor::fill::SIGN_OUT)
+        } else {
+            format!("{} Back to Menu", egui_phosphor::fill::HOUSE)
+        }
+    }
+
+    fn game_over_action(&self) -> GameplayAction {
+        if self.config.study_mode {
+            GameplayAction::Exit
+        } else {
+            GameplayAction::BackToMenu
+        }
     }
 
     fn render_board(

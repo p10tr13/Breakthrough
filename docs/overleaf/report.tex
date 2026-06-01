@@ -436,7 +436,177 @@ Aplikacja została wyposażona w prosty, czytelny interfejs graficzny (GUI), umo
 
 \subsection{Hipoteza 1: Wpływ algorytmu RAVE}
 
+\subsubsection{Metodologia i przebieg eksperymentu}
+
+Pierwsza hipoteza badawcza dotyczyła bezpośredniego porównania klasycznego algorytmu MCTS z jego rozszerzeniem wykorzystującym heurystykę RAVE (ang. \textit{Rapid Action Value Estimation}). Celem eksperymentu było sprawdzenie, czy w warunkach stałego budżetu obliczeniowego, zdefiniowanego jako limit iteracji, wariant MCTS + RAVE osiągnie przewagę nad MCTS. Kryterium przyjęcia hipotezy było przekroczenie progu 55\% zwycięstw przez agenta MCTS + RAVE w bezpośrednim starciu z agentem MCTS.
+
+W każdej rozgrywce obaj agenci korzystali z identycznego limitu iteracji równego 10~000. Na wstępie dostrojono hiperparametr $k$ algorytmu RAVE. Z testów wynikało, że wartość $k = 100$ dawała lepsze wyniki niż wartość domyślna $k = 1000$. Parametr $k$ kontroluje tempo zaniku wpływu statystyk AMAF zgodnie ze wzorem:
+
+$$
+\beta = \frac{k}{k + n}
+$$
+
+\noindent
+gdzie $n$ oznacza liczbę odwiedzin rozpatrywanego węzła potomnego. Mniejsza wartość $k$ powoduje zatem szybsze przejście od wartości RAVE do klasycznych statystyk UCT.
+
+Eksperyment przeprowadzono na czterech rozmiarach planszy: $6 \times 8$, $7 \times 7$, $8 \times 6$ oraz $8 \times 8$. Dla każdego rozmiaru planszy rozegrano 50 partii: 25 z agentem MCTS + RAVE jako graczem białym oraz 25 z agentem MCTS + RAVE jako graczem czarnym. Rotacja kolorów została zastosowana w celu ograniczenia wpływu przewagi pierwszego ruchu. Jak pokazują dalsze wyniki, kolor kontrolowanych pionów miał zauważalny wpływ na rezultaty. Łącznie w ramach weryfikacji hipotezy H1 rozegrano 200 partii.
+
+\subsubsection{Analiza wyników}
+
+Zestawienie współczynnika zwycięstw agenta MCTS + RAVE względem klasycznego MCTS przedstawiono na Rysunku~\ref{fig:h1-rave-winrate}. Pierwszy wykres agreguje wyniki według rozmiaru planszy, natomiast drugi dodatkowo rozdziela rezultaty ze względu na kolor kontrolowany przez agenta RAVE. Pozioma linia oznacza próg 55\% zwycięstw, wymagany do pozytywnej weryfikacji hipotezy.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h1_rave_win_rate_by_board.png}
+        \caption{Wyniki zagregowane według rozmiaru planszy}
+        \label{fig:h1-rave-board}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h1_rave_win_rate_by_board_and_color.png}
+        \caption{Wyniki z podziałem na kolor agenta RAVE}
+        \label{fig:h1-rave-board-color}
+    \end{subfigure}
+
+    \caption{Współczynnik zwycięstw agenta MCTS + RAVE w starciu z klasycznym MCTS przy limicie 10~000 iteracji na ruch.}
+    \label{fig:h1-rave-winrate}
+\end{figure}
+
+\noindent
+Wyniki liczbowe przedstawiono w Tabeli~\ref{tab:h1-summary}. W żadnym z badanych rozmiarów planszy średni wynik MCTS + RAVE nie przekroczył progu 55\%. Największą skuteczność agent uzyskiwał na planszach $6 \times 8$ oraz $8 \times 8$, gdzie wariant RAVE wygrał 52.0\% partii. Najsłabszy rezultat odnotowano na planszy $7 \times 7$, gdzie współczynnik zwycięstw wyniósł 40.0\%.
+
+\begin{table}[H]
+    \centering
+    \caption{Wyniki eksperymentu H1: MCTS + RAVE przeciwko klasycznemu MCTS.}
+    \label{tab:h1-summary}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{Rozmiar planszy} & \textbf{Zwycięstwa RAVE} & \textbf{Skuteczność} & \textbf{Średnia długość partii} \\
+        \hline
+        $6 \times 8$ & 26/50 & 52.0\% & 46.7 \\
+        $7 \times 7$ & 20/50 & 40.0\% & 43.5 \\
+        $8 \times 6$ & 23/50 & 46.0\% & 42.1 \\
+        $8 \times 8$ & 26/50 & 52.0\% & 54.4 \\
+        \hline
+        \textbf{Łącznie} & \textbf{95/200} & \textbf{47.5\%} & \textbf{46.7} \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\noindent
+Sumaryczny wynik MCTS + RAVE wyniósł 95 zwycięstw w 200 partiach, co odpowiada skuteczności 47.5\%. Przedział ufności Wilsona na poziomie 95\% wynosił $[40.7\%, 54.4\%]$, a więc nawet jego górna granica pozostaje poniżej progu 55\%.
+
+Dodatkowych wniosków dostarcza analiza rozkładu długości partii, przedstawiona na Rysunku~\ref{fig:h1-game-length}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/h1_game_length_by_board_and_color.png}
+    \caption{Rozkład długości partii (w półruchach) w eksperymencie H1 z podziałem na rozmiar planszy i kolor.}
+    \label{fig:h1-game-length}
+\end{figure}
+
+\noindent
+Rozkład liczby rozegranych półruchów wykazuje silną zależność od fizycznych proporcji planszy. Najkrótsze partie odnotowano na planszy $8 \times 6$ (średnio 42.1 półruchów). Wynika to z faktu, że odległość do końcowej linii przeciwnika wynosi tylko 6 rzędów, co naturalnie skraca rozgrywkę. Z kolei na planszy $8 \times 8$, wymagającej pokonania najdłuższego dystansu przy zachowaniu dużej szerokości frontu, gry były zauważalnie dłuższe (średnio 54.4 półruchów), a rozrzut wyników był największy. Zaskakującą obserwacją jest to, że w trzech z czterech rozmiarów planszy agent RAVE, grając po stronie czarnej, wykonywał średnio więcej ruchów niż grając po stronie białej. Może być to związane ze zwiększoną liczbą zwycięstw odnoszonych po stronie czarnej, choć na pierwszy rzut oka jest to sprzeczne z intuicją: gracz biały, rozpoczynając partię, ma możliwość wykonania jednego ruchu więcej od przeciwnika. Poza tą obserwacją dla badanego wariantu nie zaobserwowano jednoznacznych różnic w długości rozgrywki pomiędzy dwoma kolorami kontrolowanych pionów.
+
+\subsubsection{Wnioski końcowe}
+
+\textbf{Hipoteza H1 zostaje odrzucona}. Dla limitu 10~000 iteracji na ruch agent MCTS + RAVE, nawet po dobraniu korzystniejszego parametru $k = 100$, nie osiągnął wymaganego progu 55\% zwycięstw w bezpośrednim starciu z bazowym MCTS. Wynik sugeruje, że w badanej implementacji i dla przyjętych rozmiarów planszy informacja AMAF nie poprawia stabilnie jakości decyzji względem klasycznego MCTS. Możliwym wyjaśnieniem jest fakt, że w grze Breakthrough kolejność ruchów oraz tempo dojścia do linii końcowej mają duże znaczenie taktyczne. Dodatkowo przypadkowe ruchy wykonywane w fazie \textit{playout} mogą nie nieść wystarczająco użytecznej informacji AMAF, przez co założenie RAVE o użyteczności ruchu niezależnie od momentu jego wykonania okazuje się w tym środowisku zbyt silne i może prowadzić do przeszukiwania nieoptymalnych gałęzi drzewa gry.
+
+\newpage
 \subsection{Hipoteza 2: Wpływ algorytmu Heavy Playouts}
+
+\subsubsection{Metodologia i przebieg eksperymentu}
+
+Druga hipoteza badawcza dotyczyła wpływu ukierunkowania fazy \textit{playout} zgodnie z przyjętą funkcją heurystyczną, na jakość decyzji podejmowanych przez agenta MCTS. W odróżnieniu od eksperymentu H1, w tej serii pomiarowej nie narzucono stałej liczby iteracji. Wynika to z faktu, że pojedyncza iteracja agenta Heavy Playouts jest znacznie wolniejsza, ponieważ symulacja rozgrywki od liścia drzewa wymaga dodatkowej oceny pozycji, a nie jedynie wyboru losowego legalnego ruchu. Z tego powodu zastosowano limit czasowy, który lepiej odpowiada realistycznym ograniczeniom decyzyjnym. Celem było sprawdzenie, czy agent MCTS + Heavy Playouts osiąga współczynnik zwycięstw powyżej 55\% w bezpośrednim starciu z bazowym MCTS.
+
+Limit czasu wynosił 250 milisekund, co pozwoliło utrzymać akceptowalny czas całego eksperymentu przy zachowaniu porównywalnych warunków dla obu agentów. Obaj gracze korzystali z tego samego limitu czasowego. Dodatkowo agent MCTS + Heavy Playouts w fazie symulacji wykorzystywał strategię $\epsilon$-greedy z parametrem $\epsilon = 0.1$, dzięki czemu z prawdopodobieństwem 10\% wykonywał losowy legalny ruch, a w pozostałych przypadkach kierował się oceną heurystyczną.
+
+Podobnie jak w przypadku H1, eksperyment przeprowadzono na planszach $6 \times 8$, $7 \times 7$, $8 \times 6$ oraz $8 \times 8$. Dla każdego rozmiaru planszy rozegrano 40 partii: 20 z agentem MCTS + Heavy Playouts jako graczem białym oraz 20 z tym samym agentem jako graczem czarnym. Łącznie w celu weryfikacji hipotezy H2 rozegrano 160 partii.
+
+\subsubsection{Analiza wyników}
+
+Wyniki eksperymentu przedstawiono na Rysunku~\ref{fig:h2-heavy-winrate}. Są one przeciwne do obserwacji uzyskanych dla hipotezy H1. Wariant wykorzystujący Heavy Playouts zdecydowanie przekroczył próg 55\% dla każdego badanego rozmiaru planszy. Najniższą skuteczność osiągnął na planszach $7 \times 7$ oraz $8 \times 8$, gdzie współczynnik zwycięstw wyniósł 87.5\%. Najlepszy rezultat uzyskano na planszy $6 \times 8$, gdzie agent wygrał 38 z 40 rozgrywek (95.0\%). Co istotne, wyraźna przewaga utrzymała się zarówno przy agregacji wyników, jak i przy rozbiciu na kolor kontrolowany przez agenta testowego. Dla każdego rozmiaru planszy agent MCTS + Heavy Playouts osiągał wyniki co najmniej tak dobre po stronie czarnej jak po stronie białej. Największą dysproporcję zaobserwowano dla planszy $8 \times 8$, gdzie współczynnik zwycięstw wyniósł 80\% dla białych oraz 95\% dla czarnych. Wynik 95\% pojawił się również dla czarnych na planszy $8 \times 6$ oraz dla obu kolorów na planszy $6 \times 8$.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h2_heavyplayouts_win_rate_by_board.png}
+        \caption{Wyniki zagregowane według rozmiaru planszy}
+        \label{fig:h2-heavy-board}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h2_heavyplayouts_win_rate_by_board_and_color.png}
+        \caption{Wyniki z podziałem na kolor agenta}
+        \label{fig:h2-heavy-board-color}
+    \end{subfigure}
+
+    \caption{Współczynnik zwycięstw agenta MCTS + Heavy Playouts w starciu z klasycznym MCTS przy limicie 250 ms na ruch.}
+    \label{fig:h2-heavy-winrate}
+\end{figure}
+
+\noindent
+Szczegółowe wyniki liczbowe oraz analizę obciążenia obliczeniowego przedstawiono w Tabeli~\ref{tab:h2-summary}.
+
+\begin{table}[H]
+    \centering
+    \caption{Wyniki eksperymentu H2: MCTS + Heavy Playouts przeciwko klasycznemu MCTS.}
+    \label{tab:h2-summary}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        \textbf{Plansza} & \textbf{Zwycięstwa HP} & \textbf{Skuteczność} & \textbf{Śr. dł. partii} & \textbf{Śr. iteracje (HP / MCTS)} \\
+        \hline
+        $6 \times 8$ & 38/40 & 95.0\% & 53.4 & 1.19M / 3.67M \\
+        $7 \times 7$ & 35/40 & 87.5\% & 47.8 & 0.91M / 3.37M \\
+        $8 \times 6$ & 37/40 & 92.5\% & 38.1 & 0.90M / 2.86M \\
+        $8 \times 8$ & 35/40 & 87.5\% & 61.0 & 0.60M / 2.82M \\
+        \hline
+        \textbf{Łącznie} & \textbf{145/160} & \textbf{90.6\%} & \textbf{50.1} & \textbf{--} \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\noindent
+Sumarycznie agent MCTS + Heavy Playouts wygrał 145 ze 160 partii, co daje skuteczność 90.6\%. Przedział ufności Wilsona na poziomie 95\% wynosił $[85.1\%, 94.2\%]$. Jest to przedział estymujący prawdopodobny zakres rzeczywistego współczynnika zwycięstw na podstawie skończonej próby 160 partii. Zastosowanie przedziału Wilsona jest korzystne dla danych procentowych, ponieważ daje stabilniejszą ocenę niepewności niż proste przybliżenie normalne, szczególnie gdy wynik znajduje się blisko 0\% lub 100\%. W tym przypadku cały przedział leży znacznie powyżej progu 55\%, co wzmacnia wniosek o pozytywnej weryfikacji hipotezy.
+
+Kluczową obserwacją w tym eksperymencie jest duża dysproporcja w liczbie iteracji wykonywanych przez oba algorytmy w tym samym oknie czasowym (250 ms). Jak wcześniej wspomniano, wprowadzenie heurystyki do fazy \textit{playout} jest kosztowne obliczeniowo. W efekcie algorytm Heavy Playouts wykonywał średnio od około 3 do 4.7 razy mniej iteracji niż klasyczny wariant MCTS. Dla plansz $7 \times 7$ oraz $8 \times 8$ różnica ta była najwyższa (odpowiednio około 3.7 oraz 4.7) i korelowała z nieco niższą skutecznością agenta. Dla plansz $6 \times 8$ i $8 \times 6$ relacja wynosiła około 3.1 iteracji klasycznego MCTS na jedną iterację Heavy Playouts.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h2_iterations_by_board.png}
+        \caption{Średnia liczba iteracji}
+        \label{fig:h2-iterations}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/h2_game_length_by_board_and_color.png}
+        \caption{Rozkład długości partii}
+        \label{fig:h2-game-length}
+    \end{subfigure}
+
+    \caption{Dodatkowe charakterystyki eksperymentu H2: koszt obliczeniowy oraz długość partii.}
+    \label{fig:h2-additional}
+\end{figure}
+
+\noindent
+Na wszystkich badanych rozmiarach plansz widoczna jest wyraźna asymetria długości gry w zależności od koloru kontrolowanego przez agenta Heavy Playouts (Rysunek~\ref{fig:h2-game-length}). Partie, w których wariant heurystyczny grał czarnymi, były konsekwentnie dłuższe od partii, w których grał białymi. Jak wspomniano wcześniej, w grze Breakthrough białe posiadają naturalną przewagę pierwszego ruchu. W tym eksperymencie dłuższa rozgrywka po stronie czarnej może jednak wynikać z faktu, że Heavy Playouts skuteczniej opóźniał postęp przeciwnika dzięki trafniejszej ewaluacji defensywnej podczas symulacji. Wydłużało to czas trwania partii, pozwalając agentowi zneutralizować inicjatywę białych i częściej wygrywać w późniejszej fazie gry.
+
+\subsubsection{Wnioski końcowe}
+
+\textbf{Hipoteza H2 zostaje przyjęta}. Przy limicie 250 ms na ruch agent MCTS + Heavy Playouts osiągnął 90.6\% zwycięstw w bezpośrednim starciu z bazowym MCTS, wyraźnie przekraczając wymagany próg 55\%. Wyniki eksperymentu wskazują, że w grze Breakthrough podniesienie jakości pojedynczej symulacji poprzez wprowadzenie wiedzy domenowej kompensuje straty wynikające ze zwiększonego czasu obliczeń i mniejszego rozmiaru generowanego drzewa gry. Mimo że agent wykonuje mniej iteracji, informacje płynące z każdej symulacji są bardziej wartościowe. Heurystyka w fazie \textit{playout} lepiej odzwierciedla zachowania istotne strategicznie: bicie pionów przeciwnika, ochronę własnych pionów oraz unikanie niekorzystnych pozycji na krawędziach planszy. Na podstawie tak ukierunkowanych symulacji agent podejmuje decyzje wyraźnie skuteczniejsze niż klasyczny MCTS.
 
 \newpage
 \subsection{Hipoteza 3: Przewaga nad ewaluacją statyczną}
@@ -737,8 +907,150 @@ Należy zaznaczyć, że trend ten nie zachowuje idealnej liniowości w nieskońc
 \newpage
 \section{Testy z udziałem ludzi}
 
+\subsection{Metodologia i przebieg badania}
+
+Ostatnim etapem ewaluacji była seria rozgrywek z udziałem ludzi. Celem tego eksperymentu była analiza tego, jak agent radzi sobie z przeciwnikiem, który nie gra według deterministycznego skryptu, może świadomie wykorzystywać słabości zauważone w trakcie rozgrywki oraz adaptować się do stylu gry przeciwnika.
+
+W badaniu wzięło udział pięciu testerów, którzy nie byli twórcami agentów. Każdy z nich rozegrał osiem partii: po jednej przeciwko każdemu z agentów na planszy $7 \times 7$ oraz po jednej na planszy $8 \times 8$. Łącznie zebrano więc 40 próbek. Algorytmy były następujące:
+
+\begin{enumerate}
+    \item klasyczny MCTS,
+    \item MCTS z heurystyką RAVE ze stałą $k=100$,
+    \item MCTS z Heavy Playouts,
+    \item Minimax o głębokości przeszukiwania $d=8$.
+\end{enumerate}
+
+\noindent
+W rozgrywkach na planszy $7 \times 7$ człowiek grał kolorem białym, a na planszy $8 \times 8$ kolorem czarnym. Kolejność konfiguracji była zapisana osobno dla każdego uczestnika w plikach \texttt{pXX\_order.csv}. Na końcu każdej rozgrywki uczestnicy badania otrzymywali dwa pytania: o poziom trudności oraz o naturalność strategii przeciwnika i oceniali je w skali od 1 do 5.
+
+\subsection{Analiza wyników}
+
+Zestawienie wyników ilościowych przedstawiono na Rysunkach~\ref{fig:human-winrate-agent}--\ref{fig:human-pieces}. W całym badaniu gracze ludzcy wygrali 27 z 40 rozegranych partii, co odpowiada skuteczności 67.5\%.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.78\textwidth]{images/human_win_rate_by_agent.png}
+    \caption{Współczynnik zwycięstw ludzi w zależności od wariantu przeciwnika. Słupki błędu oznaczają przedziały ufności Wilsona.}
+    \label{fig:human-winrate-agent}
+\end{figure}
+
+\noindent
+Najwięcej problemów ludziom sprawiały klasyczny MCTS oraz Minimax, przeciwko którym gracze uzyskali po 60.0\% zwycięstw. Najłatwiejszym wariantem w bezpośredniej rywalizacji z ludźmi okazał się MCTS + Heavy Playouts. Testerzy wygrali z nim aż 80.0\% partii.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{images/human_win_rate_by_board_and_agent.png}
+    \caption{Współczynnik zwycięstw ludzi w podziale na rozmiar planszy oraz wariant przeciwnika.}
+    \label{fig:human-winrate-board}
+\end{figure}
+
+\noindent
+Podział względem rozmiaru planszy wskazuje, że ludzie wygrali 14 z 20 partii na planszy $7 \times 7$ oraz 13 z 20 partii na planszy $8 \times 8$. Oznacza to, że zmiana strony i rozmiaru planszy nie wpłynęła znacząco na sam wynik rozgrywki. Różnice były natomiast widoczne dla konkretnych agentów. Na planszy $7 \times 7$ Minimax wygrał z ludźmi 3 z 5 partii, natomiast na planszy $8 \times 8$ ludzie pokonali go w 4 z 5 partii. Może to sugerować, że na małej planszy taktyczny charakter Minimaxa był trudniejszy do zatrzymania: agent znajdował ścieżki prowadzące piony do celu, które umykały badanym. Na większej planszy gracze mieli więcej przestrzeni do formowania struktur oraz lepszego zarządzania pionami.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/human_participant_outcomes.png}
+    \caption{Macierz wyników poszczególnych uczestników. Wartość 1 oznacza zwycięstwo człowieka, natomiast 0 zwycięstwo agenta.}
+    \label{fig:human-participant-outcomes}
+\end{figure}
+
+\noindent
+Macierz wyników pokazuje dużą zmienność między uczestnikami. Mimo że każdy uczestnik został przeszkolony przed pierwszą rozgrywką, widoczna jest wyraźna dysproporcja pomiędzy badanymi. Jeden z testerów wygrał 7 z 8 partii, podczas gdy inny wygrał jedynie 3 z 8 partii. Gracze, którzy szybko zauważali podatność agentów MCTS na przepuszczanie wysuniętych pionów, byli w stanie regularnie wykorzystywać tę słabość. Z kolei gracze mniej konsekwentnie broniący wszystkich kolumn częściej dopuszczali do sytuacji, w której agent sam wymijał ich strukturę pionów.
+
+\begin{table}[H]
+    \centering
+    \caption{Zestawienie wyników ludzi przeciwko poszczególnym wariantom AI.}
+    \label{tab:human-summary}
+    \renewcommand{\arraystretch}{1.2}
+    \small
+    \begin{tabularx}{\textwidth}{|p{4.0cm}|p{1.8cm}|p{1.8cm}|p{2.2cm}|X|}
+        \hline
+        \textbf{Przeciwnik} & \textbf{Wygrane ludzi} & \textbf{Wygrane AI} & \textbf{Skuteczność ludzi} & \textbf{Śr. długość partii} \\
+        \hline
+        MCTS & \hfill 6/10 & \hfill 4/10 & \hfill 60.0\% & \hfill 40.5 \\
+        MCTS + RAVE & \hfill 7/10 & \hfill 3/10 & \hfill 70.0\% & \hfill 52.2 \\
+        MCTS + Heavy Playouts & \hfill 8/10 & \hfill 2/10 & \hfill 80.0\% & \hfill 50.9 \\
+        Minimax & \hfill 6/10 & \hfill 4/10 & \hfill 60.0\% & \hfill 56.1 \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsection{Długość partii i zachowanie materiału}
+
+Oprócz samego wyniku przeanalizowano również liczbę wykonanych ruchów oraz liczbę pionów pozostających na planszy po zakończeniu partii. Metryki te pozwalają wnioskować, jak szybko przełamywana była linia przeciwnika.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/human_game_length_by_agent.png}
+        \caption{Łączna długość partii}
+        \label{fig:human-game-length}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/human_moves_by_agent.png}
+        \caption{Liczba ruchów wykonanych przez strony}
+        \label{fig:human-moves}
+    \end{subfigure}
+    \caption{Porównanie długości partii oraz liczby ruchów wykonanych przez człowieka i agenta.}
+    \label{fig:human-length}
+\end{figure}
+
+\noindent
+Najkrótsze partie występowały przeciwko klasycznemu MCTS, gdzie średnia długość wyniosła 40.5 półruchu. Partie przeciwko Minimaxowi były najdłuższe i trwały średnio 56.1 półruchu. Wynik ten jest zgodny z obserwacjami jakościowymi: Minimax często grał bardziej zwartą strukturą, przesuwał większą część linii pionów do przodu i rzadziej natychmiastowo odsłaniał pojedynczą kolumnę. W efekcie partia wymagała od człowieka dłuższego szukania przełamania lub obrony. Klasyczny wariant MCTS często bez widocznego uzasadnienia oddawał swoje piony w środkowych kolumnach. Następnie próbował zapełnić powstałą lukę pionami z bocznych stref planszy, co odsłaniało skrzydła i pozwalało badanym kończyć partie właśnie tymi kanałami.
+
+W przypadku wariantów MCTS liczba ruchów człowieka i agenta była bardzo zbliżona, co wynika z naprzemiennego charakteru gry. Różnice można jednak zauważyć na Rysunku~\ref{fig:human-pieces}, który przedstawia liczbę pionów pozostających na planszy po zakończeniu partii.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/human_pieces_remaining_by_agent.png}
+    \caption{Liczba pionów człowieka i agenta pozostających na planszy po zakończeniu partii.}
+    \label{fig:human-pieces}
+\end{figure}
+
+\noindent
+We wszystkich wariantach końcowa przewaga materialna była po stronie ludzi. Średnio po partiach przeciwko MCTS człowiek zachowywał 13.2 pionu, a agent 9.3 pionu. Dla MCTS + RAVE wartości te wynosiły odpowiednio 11.9 oraz 7.4 pionu, dla MCTS + Heavy Playouts 11.3 oraz 8.2 pionu, natomiast dla Minimaxa 10.8 oraz 8.4 pionu. Przyczyną takiej dysproporcji może być to, że w pozycjach przegranych agenci poświęcali piony, starając się opóźnić porażkę. Badani, mimo że często mogli już bezpośrednio wygrać partię, zbijali podstawiane piony, budując dodatkową przewagę materialną. Dysproporcja ta sugeruje również, że zwycięstwa ludzi nie były wyłącznie efektem pojedynczego szybkiego przebicia lub sprytnego ruchu, lecz często wiązały się ze stopniowym budowaniem przewagi strukturalnej i materialnej.
+
+\subsection{Ocena ankietowa i obserwacje jakościowe}
+
+Uczestnicy oceniali trudność oraz naturalność ruchów przeciwników w skali od 1 do 5. Zestawienie średnich ocen przedstawiono na Rysunku~\ref{fig:human-survey}. Najwyżej ocenionym wariantem w obu kategoriach był Minimax. Średnia ocena trudności wyniosła dla niego 3.7, a naturalności strategii 4.1. Klasyczny MCTS uzyskał średnią trudność 3.1 i naturalność 2.9, MCTS + RAVE odpowiednio 2.8 i 2.8, natomiast MCTS + Heavy Playouts 2.8 i 3.3.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{images/human_survey_ratings_by_agent.png}
+    \caption{Średnie oceny ankietowe przeciwników AI w skali od 1 do 5.}
+    \label{fig:human-survey}
+\end{figure}
+
+\noindent
+Oceny ankietowe są spójne z feedbackiem testerów oraz z obserwacjami prowadzonymi podczas rozgrywek. Minimax był odbierany jako przeciwnik najbardziej agresywny i najbardziej planowy. Testerzy zwracali uwagę, że często przesuwał całą linię pionów w sposób symetryczny, przez co wymuszał analizę kilku możliwych przełamań jednocześnie. Na planszy $8 \times 8$ przeciętny badany miał trudność z konsekwentnym sprawdzaniem wszystkich ruchów do przodu, podczas gdy Minimax systematycznie przeszukiwał takie możliwości. 
+
+Warianty MCTS były oceniane bardziej ambiwalentnie. Testerzy zauważali, że potrafiły dobrze bronić zastawione pułapki oraz reagować na przenoszenie pionów na jedną stronę planszy. Wielokrotnie udawało im się ominąć strukturę obronną zbudowaną przez badanego. Często pojawiały się też podobne schematy gry, na przykład ustawianie dwóch pionów jeden za drugim w jednej kolumnie. Dzięki takiemu ustawieniu bicie lub łatwe ominięcie struktury staje się trudniejsze. Z drugiej strony klasyczny MCTS oraz MCTS + RAVE miewały tendencję do zbyt odważnego wypychania najbardziej wysuniętego pionu, co w praktyce prowadziło do oddawania materiału. Według autorów prawdopodobną przyczyną jest losowy charakter fazy \textit{playout}: w symulacjach takie zagranie nie zawsze kończy się natychmiastową karą, ponieważ zbicie pionu jest tylko jedną z wielu losowych możliwości, a czasem wysunięty pion może przypadkowo doprowadzić do zwycięstwa, zaburzając statystyki drzewa.
+
+Ostatnią obserwacją zgłoszoną w ankietach było to, że gdy agent znajdował się w sytuacji trudnej do obrony, często zaczynał wykonywać ruchy poświęcające materiał w celu opóźnienia porażki. Z perspektywy człowieka wyglądało to czasem jak desperackie oddawanie pionów, ale jest to naturalna konsekwencja funkcji celu agenta. Wpływ tego zachowania na liczbę pionów pozostałych na planszy po zakończeniu rozgrywki został opisany wcześniej.
+
+\subsection{Wnioski końcowe}
+
+Testy z udziałem ludzi pokazały, że skuteczność agentów w rozgrywkach automatycznych nie przekłada się bezpośrednio na odbiór ich siły przez badanych. Pomimo tego, że Minimax osiągał miażdząco najlepsze wyniki w poprzednich eksperymentach, a gracze z najlepszym współczynnikiem zwycięstw przegrywali pojedyncze partie tylko z nim, całościowo nie osiągnął on ewidentnie najlepszego wyniku procentowego przeciwko ludziom. Wynika to z jego deterministycznego, taktycznego charakteru gry: nawet jeśli popełniał błędy wynikające z ograniczonej funkcji heurystycznej, jego ruchy częściej sprawiały wrażenie elementów spójnego planu. Był to jednak wariant, który nie wybaczał błędów i jeśli znajdował sekwencję ruchów prowadzącą do zwycięstwa, konsekwentnie ją realizował.
+
+Warianty MCTS, zwłaszcza bez Heavy Playouts, częściej ujawniały zachowania trudne do uznania za ludzkie: nadmierne wysuwanie pojedynczych pionów, lokalne oddawanie materiału oraz brak wyraźnej symetrii w strukturze. Strategie te nie były jednak całkowicie losowe, co potwierdzają spostrzeżenia badanych. Badanie z ludźmi wskazuje, że stabilność gry, reakcja na błędy przeciwnika oraz subiektywne wrażenie planowości nie muszą bezpośrednio pokrywać się z końcowym wynikiem partii. Ostatecznie w grze liczy się zwycięstwo, ale przy ocenie agenta warto pamiętać również o tym, jak jego styl jest odbierany przez człowieka. Nie można też zapominać, że próba była bardzo mała, a różnice w odsetkach zwycięstw między wariantami są ograniczone.
+
 \newpage
 \section{Podsumowanie}
+
+Celem niniejszego projektu była implementacja, optymalizacja oraz ewaluacja algorytmu Monte-Carlo Tree Search (MCTS) wraz z jego modyfikacjami w środowisku deterministycznej gry planszowej Breakthrough. W tym celu stworzono w pełni funkcjonalny system w języku Rust, obejmujący silnik obliczeniowy do porównywania różnych wariantów algorytmu w zautomatyzowanych turniejach self-play oraz graficzny interfejs użytkownika przeznaczony do testów z udziałem ludzi.
+
+Przeprowadzone eksperymenty pozwoliły zweryfikować cztery wcześniej postawione hipotezy oraz sformułować wnioski dotyczące przeszukiwania przestrzeni stanów w grze Breakthrough. Weryfikacja hipotezy H1 pokazała, że samo zastosowanie heurystyki RAVE (AMAF) nie przyniosło oczekiwanej poprawy jakości gry. Ze względu na taktyczny charakter Breakthrough kolejność ruchów oraz tempo dojścia do linii końcowej mają duże znaczenie, dlatego kluczowe założenie RAVE o względnej niezależności wartości ruchu od momentu jego wykonania okazało się w tym przypadku zbyt silne.
+
+Odmienne rezultaty przyniosła weryfikacja hipotezy H2. Wprowadzenie wiedzy domenowej do fazy symulacji wyraźnie podniosło skuteczność agenta w starciu z klasycznym wariantem. Poprawa ta wystąpiła mimo istotnego narzutu obliczeniowego powodowanego przez Heavy Playouts. Wskazuje to, że podniesienie jakości pojedynczej symulacji może kompensować straty wynikające ze zwiększonego czasu obliczeń i mniejszego rozmiaru generowanego drzewa gry.
+
+Starcia wariantów probabilistycznych z deterministycznym algorytmem Minimax w ramach H3 ukazały słabość metod statystycznych przy średnich horyzontach planowania oponenta. Jednocześnie ponownie widoczna była przewaga MCTS + Heavy Playouts nad klasycznym wariantem oraz RAVE, ponieważ był to jedyny wariant MCTS, który nie odstawał wyraźnie od Minimaxa. Badania nad geometrią planszy w ramach H4 pokazały natomiast, że wydłużenie dystansu między graczami skutecznie ogranicza asymetrię szans wynikającą z przewagi pierwszego ruchu białych.
+
+Istotnych obserwacji dostarczyły również testy z udziałem ludzkich graczy. Pokazały one różnicę między skutecznością agenta w starciach z innymi wariantami AI a jego skutecznością w grze przeciwko człowiekowi. Paradoksalnie, agent MCTS + Heavy Playouts, który był zdecydowanym zwycięzcą turnieju różnych wariantów MCTS, okazał się najłatwiejszy do pokonania przez ludzi. Najtrudniejszymi przeciwnikami były natomiast Minimax, tworzący spójne struktury defensywne i logiczne sekwencje bić, oraz klasyczny MCTS. Może to sugerować, że heurystyki optymalizowane pod kątem ulepszania symulacji generują luki taktyczne, które ludzka intuicja potrafi stosunkowo szybko zidentyfikować i wykorzystać.
+
+Podsumowując, zastosowanie metod opartych na Monte-Carlo Tree Search w grze Breakthrough stanowi skuteczne rozwiązanie, choć jego efektywność silnie zależy od sposobu wykorzystania wiedzy domenowej. Kolejnym kierunkiem badań mogłoby być łączenie kilku modyfikacji algorytmu lub jego poszczególnych faz, w szczególności połączenie Heavy Playouts z RAVE oraz wykorzystanie zrównoleglenia obliczeń. Interesującym obszarem dalszych analiz byłaby także modyfikacja funkcji heurystycznej tak, aby lepiej odzwierciedlała taktyki wykorzystywane przez silnych graczy. Najlepsze wyniki w eksperymentach automatycznych zapewniał wariant Minimax, jednak stworzenie agenta, który nie tylko optymalizuje współczynnik zwycięstw, lecz także prezentuje styl gry wymagający od człowieka naturalnej i elastycznej odpowiedzi, pozostaje otwartym wyzwaniem.
 
 %----------------------------------------------------------------------
 \newpage

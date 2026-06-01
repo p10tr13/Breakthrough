@@ -333,20 +333,27 @@ Na bocznym pasku narzędzi, znajdować się będzie dedykowany panel parametrów
 
 \subsection{Metodologia testów na graczach (Człowiek vs AI)}
 
-Istotnym aspektem projektu jest ewaluacja jakości działania zaimplementowanych wariantów sztucznej inteligencji przeciwko ludzkim graczom. Eksperyment zostanie przeprowadzony z udziałem grupy badawczej składającej się z 5 różnych osób niezwiązanych z procesem tworzenia algorytmów. Testy zostaną zrealizowane w formule podwójnie ślepej próby na planszach o rozmiarach $7 \times 7$ oraz $8 \times 8$.
+Istotnym aspektem projektu jest ewaluacja jakości działania zaimplementowanych wariantów sztucznej inteligencji przeciwko ludzkim graczom. Eksperyment zostanie przeprowadzony z udziałem grupy badawczej składającej się z 5 różnych osób niezwiązanych z procesem tworzenia algorytmów. Testy zostaną zrealizowane w formule ślepej próby na planszach o rozmiarach $7 \times 7$ oraz $8 \times 8$.
 
 \subsubsection{Scenariusz badawczy}
-Każdy uczestnik badania zostanie poproszony o rozegranie serii czterech spotkań. Przeciwnikami będą:
+Każdy uczestnik badania zostanie poproszony o rozegranie serii spotkań przeciwko czterem wariantom sztucznej inteligencji. Przeciwnikami będą:
 \begin{enumerate}
     \item Klasyczny algorytm UCT.
-    \item Modyfikacja UCT z algorytmem RAVE .
+    \item Modyfikacja UCT z algorytmem RAVE.
     \item Modyfikacja UCT z Heavy Playouts.
     \item Algorytm Minimax z ewaluacją heurystyczną.
 \end{enumerate}
-Dla algorytmu UCT oraz jego modyfikacji zostanie ustawiony limit czasowy wynoszący 3 sekundy. W interfejsie graficznym zostaną wyłączone etykiety identyfikujące algorytmy, aby nie wpływały one na późniejszą ocenę uczestnika. Na interfejsie graficznym widoczny będzie jedynie nazwa ogólna ,,Bot 1'', ,,Bot 2'', ,,Bot 3'', ,,Bot 4''.
+
+Dla algorytmu UCT oraz jego modyfikacji zostanie ustawiony limit czasowy wynoszący 3 sekundy na ruch. Dla algorytmu Minimax planowane jest użycie głębokości przeszukiwania $d = 7$, ponieważ wstępnie odpowiada ona zbliżonemu czasowi namysłu. W razie zbyt krótkiego czasu odpowiedzi wartość ta może zostać zwiększona do $d = 8$.
+
+Dla każdego z agentów człowiek rozegra dwie partie: jedną na planszy $7 \times 7$ jako gracz biały oraz jedną na planszy $8 \times 8$ jako gracz czarny. Taki układ pozwoli zebrać dane dla obu kolorów bez nadmiernego zwiększania liczby partii wymaganych od uczestnika. Kolejność agentów powinna być losowana lub rotowana pomiędzy uczestnikami, aby ograniczyć wpływ uczenia się gry w trakcie badania.
+
+Do uruchamiania sesji zostanie wykorzystany skrypt pomocniczy, który losuje kolejność przygotowanych plików konfiguracyjnych i uruchamia środowisko graficzne osobno dla każdej partii. Po zakończeniu pojedynczej rozgrywki badacz zamyka okno aplikacji, a skrypt automatycznie przechodzi do kolejnej konfiguracji.
+
+W interfejsie graficznym zostanie włączony tryb badawczy (\texttt{blind\_mode}), w którym ukryte są etykiety identyfikujące typ algorytmu oraz panel parametrów przeciwnika. Uczestnik widzi wyłącznie planszę, informację o swojej turze, neutralny komunikat o tym, że agent oblicza ruch, oraz wynik zakończonej partii. Dane identyfikujące agenta pozostają zapisane w logach eksperymentalnych, ponieważ są potrzebne do późniejszej analizy.
 
 \subsubsection{Zbiór danych i ankietyzacja}
-Z każdej partii rozegranej z człowiekiem system automatycznie zapisze metryki gry do pliku .csv, analogiczne do tych zbieranych w scenariuszu \textit{self-play}, w tym: rezultat końcowy partii oraz czas decyzyjny ludzkiego gracza.
+Z każdej partii rozegranej z człowiekiem system automatycznie zapisze metryki gry do pliku JSONL, analogiczne do tych zbieranych w scenariuszu \textit{self-play}, w tym rezultat końcowy partii, sekwencję ruchów oraz czasy decyzyjne obu graczy. Kolejne partie mogą być dopisywane do tego samego pliku wynikowego, co upraszcza późniejszą analizę danych z całej sesji badawczej.
 
 Po zakończeniu wszystkich rozgrywek, badany wypełni krótką ankietę bazującą na skali Likerta. Uczestnik zostanie poproszony o przyporządkowanie punktacji i krótkie uzasadnienie dla każdego z czterech napotkanych przeciwników w kategoriach:
 \begin{itemize}
