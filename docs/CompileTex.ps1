@@ -45,7 +45,7 @@ else {
 
 Write-Host "Cleaning up temporary files..." -ForegroundColor DarkGray
 
-$Extensions = @(".aux", ".out", ".toc", ".fls", ".fdb_latexmk", ".synctex.gz", ".bbl", ".blg")
+$Extensions = @(".aux", ".out", ".toc", ".fls", ".fdb_latexmk", ".synctex.gz", ".bbl", ".blg", ".nav", ".snm", ".vrb")
 
 foreach ($Ext in $Extensions) {
     $TempFile = "$BaseName$Ext"
